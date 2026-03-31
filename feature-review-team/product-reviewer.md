@@ -56,21 +56,23 @@ For PR mode, use Bash to run `gh pr view <number>` and `gh pr diff <number>` for
 
 ## Output Format
 
+Your report should be thorough and detailed — you are one of five specialist reviewers whose findings will be combined into a final acceptance report. Provide specific evidence for every finding: file paths, line numbers, concrete examples of what's missing or wrong, and clear rationale. Do not abbreviate.
+
 ```
 ## Product Review: [subject]
 
 ### Product Alignment
-<Does this feature belong in this product? Does it serve the core workflow?>
+<Detailed assessment: does this feature belong in this product? How does it relate to the core workflow? Reference specific code, config, or docs that inform your assessment.>
 
 ### Feature Summary
-<What does this add/change from a product perspective?>
+<What does this add/change from a product perspective? Walk through the user-facing behavior.>
 
 ### Findings
 - [severity] — [Category]
-  Description and rationale.
+  Description and rationale. Include file paths and line references where relevant.
 
 ### Overall Assessment
-<1-2 paragraphs: Is this feature ready from a product perspective? What's missing?>
+<Comprehensive assessment: Is this feature ready from a product perspective? What's missing? What works well?>
 ```
 
 After completing your review, send your full findings to the team lead via SendMessage and mark your task as completed via TaskUpdate.
