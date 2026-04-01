@@ -2,7 +2,7 @@
 name: quality-reviewer
 description: Evaluates a feature for quality and robustness — test coverage, edge case handling, graceful degradation, error messages, and async/concurrency safety.
 tools: Read, Glob, Grep, Bash, SendMessage, TaskUpdate, TaskList
-model: sonnet
+model: opus
 effort: high
 ---
 

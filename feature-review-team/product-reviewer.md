@@ -2,7 +2,7 @@
 name: product-reviewer
 description: Evaluates a feature from a product perspective — product alignment, user workflow fit, feature completeness, and scope appropriateness.
 tools: Read, Glob, Grep, Bash, SendMessage, TaskUpdate, TaskList
-model: sonnet
+model: opus
 effort: high
 ---
 

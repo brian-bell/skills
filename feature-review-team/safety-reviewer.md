@@ -2,7 +2,7 @@
 name: safety-reviewer
 description: Evaluates a feature for safety posture changes — new attack surface, trust boundary shifts, new dependencies, and destructive operation gating.
 tools: Read, Glob, Grep, Bash, SendMessage, TaskUpdate, TaskList
-model: sonnet
+model: opus
 effort: high
 ---
 
