@@ -60,20 +60,22 @@ The team lead provides you with a review mode (PR or Feature), context summary, 
 
 ## Output Format
 
+Your report should be thorough and detailed — you are one of five specialist reviewers whose findings will be combined into a final acceptance report. Provide specific evidence for every finding: file paths, line numbers, concrete examples of pattern violations or complexity concerns, and clear rationale. Do not abbreviate.
+
 ```
 ## Maintainability Review: [subject]
 
 ### Pattern Assessment
-<Does this feature follow existing project patterns? Where does it diverge?>
+<Detailed assessment: does this feature follow existing project patterns? Reference specific files and patterns in the codebase. Where does it diverge, and what existing patterns should it follow instead?>
 
 ### Findings
 - [severity] — [Category]
-  Description: what the concern is.
-  Impact: why it matters for long-term maintenance.
-  Suggestion: how to improve.
+  Description: what the concern is. Include file paths and line references.
+  Impact: why it matters for long-term maintenance, with concrete scenarios.
+  Suggestion: how to improve, with specific guidance.
 
 ### Overall Assessment
-<1-2 paragraphs: Will this feature be maintainable long-term?>
+<Comprehensive assessment: Will this feature be maintainable long-term? What are the biggest risks? What's well-structured?>
 ```
 
 After completing your review, send your full findings to the team lead via SendMessage and mark your task as completed via TaskUpdate.

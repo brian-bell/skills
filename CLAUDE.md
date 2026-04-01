@@ -7,7 +7,7 @@ A git repo of Claude Code skills and agent teams, installed via symlinks to `~/.
 - `<name>-team/` directories contain agent teams (a lead agent + specialist agents)
 - `<name>-team/SKILL.md` is the user-invocable skill that launches the team
 - Other `.md` files in team directories are agent definitions
-- `product-manager/` follows the same pattern (SKILL.md + supporting agents/templates)
+- `product-manager/` follows the same pattern (SKILL.md + supporting templates) but uses a flat name instead of `-team/` suffix
 - `install.sh` symlinks everything to the right locations under `~/.claude/`
 
 ## Install Targets

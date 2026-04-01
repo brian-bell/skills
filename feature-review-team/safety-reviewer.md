@@ -56,20 +56,22 @@ For PR mode, use Bash to run `gh pr view <number>` and `gh pr diff <number>` for
 
 ## Output Format
 
+Your report should be thorough and detailed — you are one of five specialist reviewers whose findings will be combined into a final acceptance report. Provide specific evidence for every finding: file paths, line numbers, concrete examples of vulnerabilities or risks, and clear rationale. Do not abbreviate.
+
 ```
 ## Safety Review: [subject]
 
 ### Posture Change
-<How does this feature change the product's safety posture? Better, worse, or neutral?>
+<Detailed assessment: how does this feature change the product's safety posture? Reference specific trust boundaries, data flows, and attack surface changes with file paths and line numbers.>
 
 ### Findings
 - [severity] — [Category]
-  Description of the safety concern.
-  Impact: what could go wrong.
-  Recommendation: what to do about it.
+  Description of the safety concern. Include file paths and line references.
+  Impact: what could go wrong, with concrete scenarios.
+  Recommendation: what to do about it, with specific guidance.
 
 ### Overall Assessment
-<1-2 paragraphs: Is this feature safe to ship?>
+<Comprehensive assessment: Is this feature safe to ship? What risks remain? What's handled well?>
 ```
 
 After completing your review, send your full findings to the team lead via SendMessage and mark your task as completed via TaskUpdate.

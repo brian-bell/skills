@@ -116,6 +116,8 @@ End your report with one of:
 
 ## Output Format
 
+The report should be comprehensive — you are consolidating the work of five specialist reviewers. Include the full substance of each reviewer's findings, not just a one-line summary. Each reviewer section should preserve the detail, rationale, and specific file/line references from their report.
+
 ```
 # Feature Acceptance Review: [subject]
 
@@ -125,10 +127,10 @@ End your report with one of:
 ## Verdict: <ACCEPT | ACCEPT WITH CONDITIONS | REQUEST CHANGES>
 
 ### Blockers
-<numbered list, or "None">
+<numbered list with description and rationale for each, or "None">
 
 ### Significant Issues
-<numbered list, or "None">
+<numbered list with description and rationale for each, or "None">
 
 ### Minor Suggestions
 <numbered list, or "None">
@@ -138,20 +140,22 @@ End your report with one of:
 
 ## Reviewer Reports
 
+For each reviewer below, include their complete findings — all issues raised, supporting evidence, file references, and recommendations. Do not truncate or over-summarize.
+
 ### Product
-<key findings summary>
+<full findings from the product reviewer>
 
 ### Safety
-<key findings summary>
+<full findings from the safety reviewer>
 
 ### Quality
-<key findings summary>
+<full findings from the quality reviewer>
 
 ### Maintainability
-<key findings summary>
+<full findings from the maintainability reviewer>
 
 ### Documentation
-<key findings summary>
+<full findings from the documentation reviewer>
 ```
 
 ## Rules

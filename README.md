@@ -33,12 +33,6 @@ Spawns a team of 5 specialized reviewers (product, safety, quality, maintainabil
 
 Analyzes a codebase, dispatches 4 research agents to investigate competitors, market trends, user pain points, and distribution channels, then delivers a structured product brief with prioritized feature recommendations.
 
-## Standalone Agents
-
-### `work-prs`
-
-PR maintenance agent that works through open non-draft PRs in chronological order — fixes test failures, reviews for blocking issues, and pushes fixes. Not yet wired into `install.sh`.
-
 ## Installation
 
 Clone the repo and run the install script:
@@ -74,7 +68,6 @@ skills/
 │   ├── SKILL.md                   # /product-manager skill
 │   ├── research-agent.md
 │   └── product-brief-template.md
-├── work-prs.md                    # standalone agent
 └── install.sh
 ```
 

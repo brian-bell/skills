@@ -62,19 +62,21 @@ In feature mode: read the full documentation and compare against the actual code
 
 ## Output Format
 
+Your report should be thorough and detailed — you are one of five specialist reviewers whose findings will be combined into a final acceptance report. Provide specific evidence for every finding: file paths, line numbers, concrete examples of documentation gaps, and clear rationale. Do not abbreviate.
+
 ```
 ## Documentation Review: [subject]
 
 ### Documentation Completeness
-<What's documented, what's missing?>
+<Detailed assessment: what's documented and what's missing? List each documentation file reviewed and its current state relative to the feature. Identify specific gaps between code and docs.>
 
 ### Findings
 - [severity] — [Category]
-  What's missing or incorrect.
-  Where it should be documented.
+  What's missing or incorrect. Include file paths and line references.
+  Where it should be documented, with specific suggestions for content.
 
 ### Overall Assessment
-<1-2 paragraphs: Can a developer discover and use this feature from the docs?>
+<Comprehensive assessment: Can a developer discover and use this feature from the docs? What's the biggest documentation gap? What's documented well?>
 ```
 
 After completing your review, send your full findings to the team lead via SendMessage and mark your task as completed via TaskUpdate.
