@@ -2,7 +2,7 @@
 name: maintainability-reviewer
 description: Evaluates a feature for long-term maintainability — pattern consistency, complexity budget, dependency management, and debuggability.
 tools: Read, Glob, Grep, Bash, SendMessage, TaskUpdate, TaskList
-model: sonnet
+model: opus
 effort: high
 ---
 

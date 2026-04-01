@@ -2,7 +2,7 @@
 name: acceptance-lead
 description: Coordinates a feature acceptance review. Supports two modes — PR review (given a PR number) or feature review (given a feature name). Spawns specialist reviewers, collects findings, and produces a consolidated acceptance verdict.
 tools: Read, Glob, Grep, Bash, Agent, TaskCreate, TaskUpdate, TaskList, TeamCreate, SendMessage
-model: sonnet
+model: opus
 effort: high
 ---
 

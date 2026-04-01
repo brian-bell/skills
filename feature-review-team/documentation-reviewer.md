@@ -2,7 +2,7 @@
 name: documentation-reviewer
 description: Evaluates a feature for documentation completeness — project docs accuracy, configuration documentation, API/interface docs, and feature discoverability.
 tools: Read, Glob, Grep, Bash, SendMessage, TaskUpdate, TaskList
-model: sonnet
+model: opus
 effort: high
 ---
 
