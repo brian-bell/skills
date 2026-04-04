@@ -3,6 +3,7 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
+AGENTS_DIR="$HOME/.agents"
 
 # go-review skill
 mkdir -p "$CLAUDE_DIR/skills/go-review"
@@ -36,6 +37,22 @@ for cmd in commit docs rebase ship; do
   ln -sf "$REPO_DIR/commands/$cmd.md" "$CLAUDE_DIR/commands/$cmd.md"
 done
 
+# agent skills
+mkdir -p "$AGENTS_DIR/skills"
+for skill_dir in "$REPO_DIR"/codex-skills/*; do
+  [ -d "$skill_dir" ] || continue
+
+  skill_name="$(basename "$skill_dir")"
+  target_dir="$AGENTS_DIR/skills/$skill_name"
+  mkdir -p "$target_dir"
+
+  while IFS= read -r rel_path; do
+    target_path="$target_dir/$rel_path"
+    mkdir -p "$(dirname "$target_path")"
+    ln -sf "$skill_dir/$rel_path" "$target_path"
+  done < <(cd "$skill_dir" && find . -type f | sed 's#^\./##' | sort)
+done
+
 echo "Installed:"
 echo "  ~/.claude/skills/go-review/SKILL.md -> go-review-team/SKILL.md"
 echo "  ~/.claude/agents/go-review-team/ -> go-review-team/*.md (5 agents)"
@@ -43,3 +60,4 @@ echo "  ~/.claude/skills/feature-review/SKILL.md -> feature-review-team/SKILL.md
 echo "  ~/.claude/agents/feature-review-team/ -> feature-review-team/*.md (6 agents)"
 echo "  ~/.claude/skills/product-manager/ -> product-manager/*.md (skill + 2 templates)"
 echo "  ~/.claude/commands/ -> commands/*.md (4 commands)"
+echo "  ~/.agents/skills/ -> codex-skills/* (2 skills)"

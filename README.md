@@ -1,6 +1,6 @@
 # skills
 
-A collection of Claude Code skills and agent teams for code review, feature acceptance review, and product analysis.
+A collection of Claude Code skills, agent-installed skills, and agent teams for code review, feature acceptance review, and product analysis.
 
 ## Skills
 
@@ -33,6 +33,13 @@ Spawns a team of 5 specialized reviewers (product, safety, quality, maintainabil
 
 Analyzes a codebase, dispatches 4 research agents to investigate competitors, market trends, user pain points, and distribution channels, then delivers a structured product brief with prioritized feature recommendations.
 
+## Agent-Installed Skills
+
+The repo also includes two skills installed to `~/.agents/skills/`:
+
+- `commit` — Create clean local-only git commits from the current worktree without pushing or opening a PR.
+- `ship` — Follow the `commit` workflow, then push the branch and create a PR only if one does not already exist.
+
 ### Commands
 
 Slash commands for common git workflows:
@@ -52,7 +59,7 @@ cd ~/dev/skills
 ./install.sh
 ```
 
-The script creates symlinks from the repo into `~/.claude/`, so edits to files in this repo take effect immediately — just run `/reload-plugins` in your Claude Code session.
+The script creates symlinks from the repo into `~/.claude/` and `~/.agents/skills/`, so edits to files in this repo take effect immediately. Run `/reload-plugins` in Claude Code after changing Claude-facing skills or commands.
 
 ## Directory Structure
 
@@ -82,9 +89,12 @@ skills/
 │   ├── docs.md                    # /docs command
 │   ├── rebase.md                  # /rebase command
 │   └── ship.md                    # /ship command
+├── codex-skills/
+│   ├── commit/
+│   └── ship/
 └── install.sh
 ```
 
 ## Updating
 
-Since `install.sh` creates symlinks, any edits you make in this repo are live immediately. Run `/reload-plugins` inside Claude Code to pick up changes to skill and agent definitions.
+Since `install.sh` creates symlinks, any edits you make in this repo are live immediately. Run `/reload-plugins` inside Claude Code to pick up changes to Claude skill and agent definitions.

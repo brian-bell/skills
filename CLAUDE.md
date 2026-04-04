@@ -1,6 +1,6 @@
 # Skills Repo
 
-A git repo of Claude Code skills and agent teams, installed via symlinks to `~/.claude/`.
+A git repo of Claude Code skills, agent-installed skills, and agent teams, installed via symlinks to `~/.claude/` and `~/.agents/skills/`.
 
 ## Repo Layout
 
@@ -9,7 +9,8 @@ A git repo of Claude Code skills and agent teams, installed via symlinks to `~/.
 - Other `.md` files in team directories are agent definitions
 - `product-manager/` follows the same pattern (SKILL.md + supporting templates) but uses a flat name instead of `-team/` suffix
 - `commands/` contains slash commands (e.g. `/commit`, `/ship`)
-- `install.sh` symlinks everything to the right locations under `~/.claude/`
+- `codex-skills/` contains repo-managed agent-installed skills
+- `install.sh` symlinks everything to the right locations under `~/.claude/` and `~/.agents/skills/`
 
 ## Install Targets
 
@@ -18,8 +19,14 @@ A git repo of Claude Code skills and agent teams, installed via symlinks to `~/.
 | `<name>-team/SKILL.md` | `~/.claude/skills/<name>/SKILL.md` |
 | `<name>-team/<agent>.md` | `~/.claude/agents/<name>-team/<agent>.md` |
 | `commands/<cmd>.md` | `~/.claude/commands/<cmd>.md` |
+| `codex-skills/<name>/*` | `~/.agents/skills/<name>/*` |
 
 Symlinks, not copies — edits to repo files take effect immediately after `/reload-plugins`.
+
+Current repo-managed agent-installed skills:
+
+- `commit`
+- `ship`
 
 ## File Anatomy
 
@@ -54,5 +61,5 @@ Instructions for how to invoke the agent team.
 1. Create a `<name>-team/` directory
 2. Add `SKILL.md` with `user_invocable: true` frontmatter
 3. Add agent `.md` files (lead + specialists)
-4. Add symlink entries to `install.sh`
+4. Add symlink entries to `install.sh` if the new skill needs installation wiring
 5. Run `./install.sh && /reload-plugins`
