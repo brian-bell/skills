@@ -33,6 +33,15 @@ Spawns a team of 5 specialized reviewers (product, safety, quality, maintainabil
 
 Analyzes a codebase, dispatches 4 research agents to investigate competitors, market trends, user pain points, and distribution channels, then delivers a structured product brief with prioritized feature recommendations.
 
+### Commands
+
+Slash commands for common git workflows:
+
+- `/commit` — Commit the current changeset (splits discrete changes into separate commits)
+- `/docs` — Update CLAUDE.md and README.md to reflect the current codebase
+- `/rebase` — Rebase the current branch on main and resolve conflicts
+- `/ship` — Commit, push, and open a PR for the current branch
+
 ## Installation
 
 Clone the repo and run the install script:
@@ -68,6 +77,11 @@ skills/
 │   ├── SKILL.md                   # /product-manager skill
 │   ├── research-agent.md
 │   └── product-brief-template.md
+├── commands/
+│   ├── commit.md                  # /commit command
+│   ├── docs.md                    # /docs command
+│   ├── rebase.md                  # /rebase command
+│   └── ship.md                    # /ship command
 └── install.sh
 ```
 
