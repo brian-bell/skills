@@ -1,0 +1,6 @@
+interface:
+  display_name: "Ship"
+  short_description: "Commit, push, and open PRs"
+  default_prompt: "Use $ship to follow $commit first, then push the branch and create a PR with a detailed description if needed, without changing an existing PR description unless asked."
+policy:
+  allow_implicit_invocation: false
