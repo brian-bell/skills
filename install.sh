@@ -30,9 +30,16 @@ ln -sf "$REPO_DIR/product-manager/SKILL.md" "$CLAUDE_DIR/skills/product-manager/
 ln -sf "$REPO_DIR/product-manager/research-agent.md" "$CLAUDE_DIR/skills/product-manager/research-agent.md"
 ln -sf "$REPO_DIR/product-manager/product-brief-template.md" "$CLAUDE_DIR/skills/product-manager/product-brief-template.md"
 
+# commands
+mkdir -p "$CLAUDE_DIR/commands"
+for cmd in commit docs rebase ship; do
+  ln -sf "$REPO_DIR/commands/$cmd.md" "$CLAUDE_DIR/commands/$cmd.md"
+done
+
 echo "Installed:"
 echo "  ~/.claude/skills/go-review/SKILL.md -> go-review-team/SKILL.md"
 echo "  ~/.claude/agents/go-review-team/ -> go-review-team/*.md (5 agents)"
 echo "  ~/.claude/skills/feature-review/SKILL.md -> feature-review-team/SKILL.md"
 echo "  ~/.claude/agents/feature-review-team/ -> feature-review-team/*.md (6 agents)"
 echo "  ~/.claude/skills/product-manager/ -> product-manager/*.md (skill + 2 templates)"
+echo "  ~/.claude/commands/ -> commands/*.md (4 commands)"
