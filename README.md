@@ -59,7 +59,15 @@ cd ~/dev/skills
 ./install.sh
 ```
 
-The script creates symlinks from the repo into `~/.claude/` and `~/.agents/skills/`, so edits to files in this repo take effect immediately. Run `/reload-plugins` in Claude Code after changing Claude-facing skills or commands.
+The installer uses two install modes:
+
+- Claude-facing skills, agents, and commands are symlinked into `~/.claude/`.
+- Repo-managed Codex skills under `codex-skills/` are copied into `~/.agents/skills/`.
+
+This split is intentional: Codex skill discovery does not reliably pick up symlinked skill files under `~/.agents/skills/`.
+
+After changing Claude-facing skills or commands, run `/reload-plugins` in Claude Code.
+After changing `codex-skills/`, rerun `./install.sh` to refresh the copied files.
 
 ## Directory Structure
 
@@ -97,4 +105,5 @@ skills/
 
 ## Updating
 
-Since `install.sh` creates symlinks, any edits you make in this repo are live immediately. Run `/reload-plugins` inside Claude Code to pick up changes to Claude skill and agent definitions.
+- Changes under `go-review-team/`, `feature-review-team/`, `product-manager/`, and `commands/` are live through symlinks. Run `/reload-plugins` inside Claude Code to pick them up.
+- Changes under `codex-skills/` are copied into `~/.agents/skills/`. Rerun `./install.sh` after editing them.
