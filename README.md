@@ -33,6 +33,18 @@ Spawns a team of 5 specialized reviewers (product, safety, quality, maintainabil
 
 Analyzes a codebase, dispatches 4 research agents to investigate competitors, market trends, user pain points, and distribution channels, then delivers a structured product brief with prioritized feature recommendations.
 
+### `/chrome-reading-list` — Chrome Reading List Exporter
+
+Parses Chrome's Sync Data LevelDB (snappy-compressed SSTs + `ReadingListSpecifics` protobufs) and writes the Reading List to CSV or JSON. Chrome has no built-in export for this data.
+
+```
+/chrome-reading-list                                     # CSV to ~/Desktop/chrome-reading-list.csv
+/chrome-reading-list --unread-only --out ~/rl.csv        # only UNREAD entries
+/chrome-reading-list --format json --profile "Profile 1" # pick a Chrome profile
+```
+
+Requires `python-snappy` (the skill installs it on first run if missing). Paths default to macOS Chrome; adjust `CHROME_BASE` in `extract.py` for Linux/Windows.
+
 ## Agent-Installed Skills
 
 The repo also includes two skills installed to `~/.agents/skills/`:
@@ -92,6 +104,9 @@ skills/
 │   ├── SKILL.md                   # /product-manager skill
 │   ├── research-agent.md
 │   └── product-brief-template.md
+├── chrome-reading-list/
+│   ├── SKILL.md                   # /chrome-reading-list skill
+│   └── extract.py                 # LevelDB + snappy + protobuf parser
 ├── commands/
 │   ├── commit.md                  # /commit command
 │   ├── docs.md                    # /docs command
