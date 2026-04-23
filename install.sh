@@ -36,6 +36,11 @@ ln -sf "$REPO_DIR/product-manager/SKILL.md" "$CLAUDE_DIR/skills/product-manager/
 ln -sf "$REPO_DIR/product-manager/research-agent.md" "$CLAUDE_DIR/skills/product-manager/research-agent.md"
 ln -sf "$REPO_DIR/product-manager/product-brief-template.md" "$CLAUDE_DIR/skills/product-manager/product-brief-template.md"
 
+# chrome-reading-list skill
+mkdir -p "$CLAUDE_DIR/skills/chrome-reading-list"
+ln -sf "$REPO_DIR/chrome-reading-list/SKILL.md" "$CLAUDE_DIR/skills/chrome-reading-list/SKILL.md"
+ln -sf "$REPO_DIR/chrome-reading-list/extract.py" "$CLAUDE_DIR/skills/chrome-reading-list/extract.py"
+
 # commands
 mkdir -p "$CLAUDE_DIR/commands"
 for cmd in commit docs rebase ship; do
@@ -62,5 +67,6 @@ echo "  ~/.claude/agents/go-review-team/ -> go-review-team/*.md (5 agents)"
 echo "  ~/.claude/skills/feature-review/SKILL.md -> feature-review-team/SKILL.md"
 echo "  ~/.claude/agents/feature-review-team/ -> feature-review-team/*.md (6 agents)"
 echo "  ~/.claude/skills/product-manager/ -> product-manager/*.md (skill + 2 templates)"
+echo "  ~/.claude/skills/chrome-reading-list/ -> chrome-reading-list/ (SKILL.md + extract.py)"
 echo "  ~/.claude/commands/ -> commands/*.md (4 commands)"
 echo "  ~/.agents/skills/ <= copied from codex-skills/* (2 skills)"
