@@ -1,7 +1,10 @@
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
+use std::net::TcpListener;
 use std::os::unix::fs as unix_fs;
 use std::process::{Command, Stdio};
+use std::thread;
+use std::time::Duration;
 
 use serde_json::Value;
 
@@ -285,6 +288,185 @@ description: Imported from a path through the command.
     );
 }
 
+#[test]
+fn import_url_command_imports_from_loopback_http_server() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let canonical_root = temp.path().join("canonical");
+    let imports_root = temp.path().join("imports");
+    let markdown = r#"---
+name: command-url-import
+description: Imported from a loopback URL through the command.
+---
+
+# Command URL Import
+"#;
+    let listener = TcpListener::bind("127.0.0.1:0").expect("loopback listener");
+    listener
+        .set_nonblocking(true)
+        .expect("nonblocking listener");
+    let url = format!(
+        "http://{}/command-url-import.md",
+        listener.local_addr().expect("listener address")
+    );
+    let server = thread::spawn(move || {
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "timed out waiting for loopback request"
+                    );
+                    thread::sleep(Duration::from_millis(10));
+                }
+                Err(error) => panic!("accept request: {error}"),
+            }
+        };
+        stream.set_nonblocking(false).expect("blocking stream");
+        let mut request = [0_u8; 1024];
+        let bytes_read = stream.read(&mut request).expect("read request");
+        let request = String::from_utf8_lossy(&request[..bytes_read]);
+        assert!(
+            request.starts_with("GET /command-url-import.md "),
+            "request: {request}"
+        );
+
+        write!(
+            stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: text/markdown\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            markdown.len(),
+            markdown
+        )
+        .expect("write response");
+    });
+
+    let output = loopback_skill_importer_command()
+        .args([
+            "import",
+            "url",
+            "--json",
+            "--url",
+            url.as_str(),
+            "--canonical-root",
+            canonical_root.to_str().expect("canonical root path"),
+            "--imports-root",
+            imports_root.to_str().expect("imports root path"),
+        ])
+        .output()
+        .expect("run import url command");
+
+    server.join().expect("server finishes");
+    assert!(
+        output.status.success(),
+        "command failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let json: Value = serde_json::from_slice(&output.stdout).expect("valid json output");
+    assert_eq!(json["skill_name"], "command-url-import");
+    assert_eq!(json["manifest"]["source_type"], "url");
+    assert_eq!(json["manifest"]["source_location"], url);
+    assert_eq!(json["actions"].as_array().expect("actions").len(), 3);
+    assert!(
+        imports_root
+            .join("command-url-import")
+            .join("SKILL.md")
+            .exists()
+    );
+}
+
+#[test]
+fn import_url_command_rejects_oversized_loopback_response() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let canonical_root = temp.path().join("canonical");
+    let imports_root = temp.path().join("imports");
+    let listener = TcpListener::bind("127.0.0.1:0").expect("loopback listener");
+    listener
+        .set_nonblocking(true)
+        .expect("nonblocking listener");
+    let url = format!(
+        "http://{}/oversized.md",
+        listener.local_addr().expect("listener address")
+    );
+    let server = thread::spawn(move || {
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "timed out waiting for loopback request"
+                    );
+                    thread::sleep(Duration::from_millis(10));
+                }
+                Err(error) => panic!("accept request: {error}"),
+            }
+        };
+        stream.set_nonblocking(false).expect("blocking stream");
+        let mut request = [0_u8; 1024];
+        let bytes_read = stream.read(&mut request).expect("read request");
+        let request = String::from_utf8_lossy(&request[..bytes_read]);
+        assert!(
+            request.starts_with("GET /oversized.md "),
+            "request: {request}"
+        );
+
+        stream
+            .write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/markdown\r\nConnection: close\r\n\r\n",
+            )
+            .expect("write response headers");
+        let oversized_body = vec![b'a'; 1024 * 1024 + 1];
+        for chunk in oversized_body.chunks(8192) {
+            if let Err(error) = stream.write_all(chunk) {
+                assert!(
+                    matches!(
+                        error.kind(),
+                        std::io::ErrorKind::BrokenPipe
+                            | std::io::ErrorKind::ConnectionReset
+                            | std::io::ErrorKind::ConnectionAborted
+                    ),
+                    "write oversized response body: {error}"
+                );
+                break;
+            }
+        }
+    });
+
+    let output = loopback_skill_importer_command()
+        .args([
+            "import",
+            "url",
+            "--json",
+            "--url",
+            url.as_str(),
+            "--canonical-root",
+            canonical_root.to_str().expect("canonical root path"),
+            "--imports-root",
+            imports_root.to_str().expect("imports root path"),
+        ])
+        .output()
+        .expect("run import url command");
+
+    server.join().expect("server finishes");
+    assert!(
+        !output.status.success(),
+        "oversized response should fail: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("exceeds the 1048576 byte limit"),
+        "stderr should explain the size limit: {stderr}"
+    );
+    assert!(
+        !imports_root.exists(),
+        "oversized URL response should not create storage"
+    );
+}
+
 fn write_skill(root: &std::path::Path, name: &str, description: &str) -> std::path::PathBuf {
     let skill_dir = root.join(name);
     fs::create_dir_all(&skill_dir).expect("skill dir");
@@ -300,6 +482,24 @@ description: {description}
     )
     .expect("skill file");
     skill_dir
+}
+
+fn loopback_skill_importer_command() -> Command {
+    let mut command =
+        Command::new(std::env::var("CARGO_BIN_EXE_skill-importer").expect("binary path"));
+    for key in [
+        "ALL_PROXY",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "NO_PROXY",
+        "all_proxy",
+        "http_proxy",
+        "https_proxy",
+        "no_proxy",
+    ] {
+        command.env_remove(key);
+    }
+    command
 }
 
 fn find_skill<'skills>(skills: &'skills [Value], name: &str) -> &'skills Value {
