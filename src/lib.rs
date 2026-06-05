@@ -116,7 +116,7 @@ fn discover_skill_collection(
     for entry in fs::read_dir(root)? {
         let entry = entry?;
         let path = entry.path();
-        if !entry.file_type()?.is_dir() {
+        if !collection_entry_is_skill_dir(&path)? {
             continue;
         }
 
@@ -126,6 +126,23 @@ fn discover_skill_collection(
     }
 
     Ok(())
+}
+
+fn collection_entry_is_skill_dir(path: &Path) -> io::Result<bool> {
+    let metadata = fs::symlink_metadata(path)?;
+    if metadata.is_dir() {
+        return Ok(true);
+    }
+
+    if metadata.file_type().is_symlink() {
+        return match fs::metadata(path) {
+            Ok(target_metadata) => Ok(target_metadata.is_dir()),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+            Err(error) => Err(error),
+        };
+    }
+
+    Ok(false)
 }
 
 fn discover_agent_root(
@@ -279,11 +296,21 @@ fn parse_skill_metadata(contents: &str) -> Option<SkillMetadata> {
 }
 
 fn clean_frontmatter_value(value: &str) -> String {
-    value
-        .trim()
-        .trim_matches('"')
-        .trim_matches('\'')
-        .to_string()
+    let value = value.trim();
+    if let Some(value) = value
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+    {
+        return value.to_string();
+    }
+    if let Some(value) = value
+        .strip_prefix('\'')
+        .and_then(|value| value.strip_suffix('\''))
+    {
+        return value.to_string();
+    }
+
+    value.to_string()
 }
 
 fn source_precedence(source: SkillSource) -> usize {

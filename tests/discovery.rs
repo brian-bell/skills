@@ -204,6 +204,144 @@ fn regular_files_in_agent_roots_do_not_create_skill_entries() {
     assert!(inventory.skills.is_empty());
 }
 
+#[test]
+fn symlinked_skill_directories_in_collection_roots_are_discovered() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let canonical_root = temp.path().join("canonical");
+    let source_root = temp.path().join("source");
+    fs::create_dir_all(&canonical_root).expect("canonical root");
+    fs::create_dir_all(&source_root).expect("source root");
+
+    let source_skill = write_skill(
+        &source_root,
+        "linked-canonical",
+        "Discovered through a collection symlink.",
+    );
+    unix_fs::symlink(&source_skill, canonical_root.join("linked-canonical"))
+        .expect("collection symlink");
+
+    let inventory = discover_skills(&DiscoveryRoots {
+        canonical_root,
+        imports_root: temp.path().join("missing-imports"),
+        claude_code_root: temp.path().join("missing-claude"),
+        codex_root: temp.path().join("missing-codex"),
+    })
+    .expect("discovery succeeds");
+
+    assert_eq!(inventory.skills.len(), 1);
+    assert_eq!(inventory.skills[0].name, "linked-canonical");
+    assert_eq!(inventory.skills[0].source, SkillSource::Canonical);
+}
+
+#[test]
+fn imported_agent_only_and_agent_entry_statuses_are_reported() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let imports_root = temp.path().join("imports");
+    let claude_root = temp.path().join("claude");
+    let codex_root = temp.path().join("codex");
+    let external_root = temp.path().join("external");
+
+    fs::create_dir_all(&claude_root).expect("claude root");
+    fs::create_dir_all(&codex_root).expect("codex root");
+    fs::create_dir_all(&external_root).expect("external root");
+
+    let imported = write_skill(&imports_root, "imported-skill", "Imported but unpromoted.");
+    unix_fs::symlink(&imported, claude_root.join("imported-skill")).expect("imported symlink");
+
+    let external = write_skill(&external_root, "external-skill", "Managed somewhere else.");
+    unix_fs::symlink(&external, codex_root.join("external-skill")).expect("external symlink");
+
+    write_skill(
+        &claude_root,
+        "agent-directory",
+        "A real agent-root directory.",
+    );
+
+    let inventory = discover_skills(&DiscoveryRoots {
+        canonical_root: temp.path().join("missing-canonical"),
+        imports_root,
+        claude_code_root: claude_root,
+        codex_root,
+    })
+    .expect("discovery succeeds");
+
+    let imported_skill = find_skill(&inventory, "imported-skill");
+    assert_eq!(imported_skill.source, SkillSource::Imported);
+    assert_eq!(
+        imported_skill.agent_entries.claude_code,
+        AgentEntryStatus::ImportedSymlink
+    );
+
+    let external_skill = find_skill(&inventory, "external-skill");
+    assert_eq!(external_skill.source, SkillSource::AgentOnly);
+    assert_eq!(
+        external_skill.agent_entries.codex,
+        AgentEntryStatus::ExternalSymlink
+    );
+
+    let agent_directory = find_skill(&inventory, "agent-directory");
+    assert_eq!(agent_directory.source, SkillSource::AgentOnly);
+    assert_eq!(
+        agent_directory.agent_entries.claude_code,
+        AgentEntryStatus::SkillDirectory
+    );
+}
+
+#[test]
+fn canonical_source_wins_when_skill_exists_in_canonical_and_imports() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let canonical_root = temp.path().join("canonical");
+    let imports_root = temp.path().join("imports");
+
+    write_skill(&canonical_root, "shared-skill", "Canonical description.");
+    write_skill(&imports_root, "shared-skill", "Imported description.");
+
+    let inventory = discover_skills(&DiscoveryRoots {
+        canonical_root,
+        imports_root,
+        claude_code_root: temp.path().join("missing-claude"),
+        codex_root: temp.path().join("missing-codex"),
+    })
+    .expect("discovery succeeds");
+
+    assert_eq!(inventory.skills.len(), 1);
+    assert_eq!(inventory.skills[0].source, SkillSource::Canonical);
+    assert_eq!(
+        inventory.skills[0].description.as_deref(),
+        Some("Canonical description.")
+    );
+}
+
+#[test]
+fn quoted_frontmatter_values_strip_one_matching_quote_pair() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let canonical_root = temp.path().join("canonical");
+    let skill_dir = canonical_root.join("quoted-skill");
+    fs::create_dir_all(&skill_dir).expect("skill dir");
+    fs::write(
+        skill_dir.join("SKILL.md"),
+        r#"---
+name: quoted-skill
+description: """quoted"""
+---
+"#,
+    )
+    .expect("skill file");
+
+    let inventory = discover_skills(&DiscoveryRoots {
+        canonical_root,
+        imports_root: temp.path().join("missing-imports"),
+        claude_code_root: temp.path().join("missing-claude"),
+        codex_root: temp.path().join("missing-codex"),
+    })
+    .expect("discovery succeeds");
+
+    assert_eq!(
+        inventory.skills[0].description.as_deref(),
+        Some(r#"""quoted"""#)
+    );
+}
+
 fn write_skill(root: &std::path::Path, name: &str, description: &str) -> std::path::PathBuf {
     let skill_dir = root.join(name);
     fs::create_dir_all(&skill_dir).expect("skill dir");
@@ -219,4 +357,15 @@ description: {description}
     )
     .expect("skill file");
     skill_dir
+}
+
+fn find_skill<'inventory>(
+    inventory: &'inventory skill_importer::SkillInventory,
+    name: &str,
+) -> &'inventory skill_importer::SkillEntry {
+    inventory
+        .skills
+        .iter()
+        .find(|skill| skill.name == name)
+        .expect("skill exists")
 }
