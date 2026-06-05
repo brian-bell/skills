@@ -47,11 +47,11 @@ Before you can reason about the product, you must deeply understand what exists.
 
 ### Phase 2: Research the Product Space
 
-Dispatch 4 research subagents in parallel using the Agent tool. Each subagent gets a focused research brief constructed from what you learned in Phase 1.
+Research 4 dimensions of the product space. If multi-agent tools are available in the current Codex environment, dispatch one focused research worker per dimension; otherwise perform the four research passes yourself and keep notes separated by dimension.
 
-Each subagent should use WebSearch and WebFetch to gather real, current information. Running them concurrently saves time and keeps your context clean for synthesis work.
+Use web search for real, current information. Because market and competitor facts are time-sensitive, browse rather than relying on memory. Prefer primary sources for pricing, positioning, docs, install instructions, and official marketplaces; use forums and social sources for pain-point evidence.
 
-Construct each subagent prompt using the template in [research-agent.md](research-agent.md), filling in the application-specific details from Phase 1.
+Construct each research brief using the template in [research-agent.md](research-agent.md), filling in the application-specific details from Phase 1.
 
 **Subagent 1 -- Competitor Analysis:**
 Research direct and adjacent competitors. Find products that solve the same problem or serve the same persona. For each competitor: name, positioning, pricing model, key differentiators, weaknesses, and market share signals (funding, downloads, stars, press coverage).

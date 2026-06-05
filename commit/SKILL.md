@@ -9,7 +9,7 @@ Create clean local-only commits from the current worktree. Start from a remote-s
 
 ## Workflow
 
-1. Inspect the repo state with `git status --short --branch`, the current branch name, and a diff summary.
+1. Inspect the repo state with `git status --short --branch`, the current branch name, `git diff HEAD`, and recent commit style with `git log --oneline -5`.
 2. Identify intended changes before staging anything.
 3. Exclude obvious noise such as caches, build artifacts, editor files, and unrelated untracked files unless the user clearly wants them committed.
 4. Group the remaining changes into logical changesets.
@@ -25,12 +25,14 @@ Create clean local-only commits from the current worktree. Start from a remote-s
    - If the current branch is behind or diverged and syncing it would require intrusive history edits, create a new local branch from the updated remote base and commit there.
    - If the user is on `main`, `master`, a release branch, or detached `HEAD`, prefer creating a new local branch unless the user explicitly asked to commit there.
 7. Stage and commit one logical changeset at a time.
+   - Before committing, run `gofmt` on changed Go files that will be included in the commit.
    - Use path-based staging or `git add -p` to keep commits clean.
    - Write reasonably detailed commit messages.
    - Use a clear subject line plus a body when the change is non-trivial.
    - In the message body, summarize what changed and why it changed. Include implementation detail only when it helps future readers.
+   - Do not include a `Co-Authored-By` trailer unless the user explicitly asks for one.
    - Do not sweep unrelated files into a commit just to make the worktree clean.
-8. Verify the result with `git status --short --branch` and a short commit summary.
+8. Verify the result with `git status --short --branch` and `git log --oneline -5`.
 
 ## Sync Rule
 
@@ -43,6 +45,7 @@ Bring the starting point in sync with the relevant remote branch before creating
 - Do not rewrite history unless the user explicitly asks.
 - Do not amend existing commits unless requested.
 - Do not create empty commits unless the user explicitly wants one.
+- Do not include a `Co-Authored-By` trailer in commit messages unless explicitly requested.
 - If there is nothing to commit, say so plainly.
 - If commit hooks or git identity settings block the commit, surface the exact error and stop.
 - Avoid vague subjects such as `fix stuff` or `updates`.

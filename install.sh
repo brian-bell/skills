@@ -5,62 +5,70 @@ REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLAUDE_DIR="$HOME/.claude"
 AGENTS_DIR="$HOME/.agents"
 
-# Claude-facing skills and commands still use symlinks so repo edits remain live
-# after a Claude reload. Codex-managed skills under ~/.agents/skills are copied
-# instead because symlinked SKILL.md/openai.yaml files are not discovered
-# reliably by Codex skill loading.
+portable_skills=(
+  chrome-reading-list
+  commit
+  docs
+  grill-me
+  improve-codebase-architecture
+  prd-to-issues
+  prd-to-plan
+  product-manager
+  review-loop
+  ship
+  skill-parity-audit
+  tdd
+  work-prs
+  write-a-prd
+)
 
-# go-review skill
-mkdir -p "$CLAUDE_DIR/skills/go-review"
-ln -sf "$REPO_DIR/go-review-team/SKILL.md" "$CLAUDE_DIR/skills/go-review/SKILL.md"
+link_dir() {
+  local source="$1"
+  local target="$2"
 
-# go-review-team agents
+  rm -rf "$target"
+  ln -s "$source" "$target"
+}
+
+mkdir -p "$CLAUDE_DIR/skills" "$CLAUDE_DIR/agents" "$AGENTS_DIR/skills"
+
+# Retired surfaces. Keep them absent on reinstall.
+rm -rf "$CLAUDE_DIR/commands"
+rm -rf "$CLAUDE_DIR/skills/rebase" "$AGENTS_DIR/skills/rebase"
+
+# Portable skills are top-level repo directories and are symlinked into both
+# Claude and Codex/agents skill roots.
+for skill in "${portable_skills[@]}"; do
+  if [ ! -d "$REPO_DIR/$skill" ]; then
+    echo "Missing portable skill: $REPO_DIR/$skill" >&2
+    exit 1
+  fi
+
+  link_dir "$REPO_DIR/$skill" "$AGENTS_DIR/skills/$skill"
+  link_dir "$REPO_DIR/$skill" "$CLAUDE_DIR/skills/$skill"
+done
+
+# Claude-native skills stay under claude-native/.
+link_dir "$REPO_DIR/claude-native/product-manager" "$CLAUDE_DIR/skills/product-manager"
+link_dir "$REPO_DIR/claude-native/go-review-team" "$CLAUDE_DIR/skills/go-review"
+link_dir "$REPO_DIR/claude-native/feature-review-team" "$CLAUDE_DIR/skills/feature-review"
+
 mkdir -p "$CLAUDE_DIR/agents/go-review-team"
 for agent in review-lead security-reviewer style-reviewer error-reviewer structure-reviewer; do
-  ln -sf "$REPO_DIR/go-review-team/$agent.md" "$CLAUDE_DIR/agents/go-review-team/$agent.md"
+  ln -sf "$REPO_DIR/claude-native/go-review-team/$agent.md" "$CLAUDE_DIR/agents/go-review-team/$agent.md"
 done
 
-# feature-review skill
-mkdir -p "$CLAUDE_DIR/skills/feature-review"
-ln -sf "$REPO_DIR/feature-review-team/SKILL.md" "$CLAUDE_DIR/skills/feature-review/SKILL.md"
-
-# feature-review-team agents
 mkdir -p "$CLAUDE_DIR/agents/feature-review-team"
 for agent in acceptance-lead product-reviewer safety-reviewer quality-reviewer maintainability-reviewer documentation-reviewer; do
-  ln -sf "$REPO_DIR/feature-review-team/$agent.md" "$CLAUDE_DIR/agents/feature-review-team/$agent.md"
+  ln -sf "$REPO_DIR/claude-native/feature-review-team/$agent.md" "$CLAUDE_DIR/agents/feature-review-team/$agent.md"
 done
 
-# product-manager skill
-mkdir -p "$CLAUDE_DIR/skills/product-manager"
-ln -sf "$REPO_DIR/product-manager/SKILL.md" "$CLAUDE_DIR/skills/product-manager/SKILL.md"
-ln -sf "$REPO_DIR/product-manager/research-agent.md" "$CLAUDE_DIR/skills/product-manager/research-agent.md"
-ln -sf "$REPO_DIR/product-manager/product-brief-template.md" "$CLAUDE_DIR/skills/product-manager/product-brief-template.md"
-
-# commands
-mkdir -p "$CLAUDE_DIR/commands"
-for cmd in commit docs rebase ship; do
-  ln -sf "$REPO_DIR/commands/$cmd.md" "$CLAUDE_DIR/commands/$cmd.md"
+echo "Installed portable skills into ~/.agents/skills and ~/.claude/skills via symlinks:"
+for skill in "${portable_skills[@]}"; do
+  echo "  $skill"
 done
-
-# Repo-managed Codex skills are copied into ~/.agents/skills so Codex sees
-# regular files during discovery. Recreate each managed directory on install to
-# avoid leaving stale files behind after skill updates.
-mkdir -p "$AGENTS_DIR/skills"
-for skill_dir in "$REPO_DIR"/codex-skills/*; do
-  [ -d "$skill_dir" ] || continue
-
-  skill_name="$(basename "$skill_dir")"
-  target_dir="$AGENTS_DIR/skills/$skill_name"
-  rm -rf "$target_dir"
-  mkdir -p "$target_dir"
-  cp -R "$skill_dir"/. "$target_dir"/
-done
-
-echo "Installed:"
-echo "  ~/.claude/skills/go-review/SKILL.md -> go-review-team/SKILL.md"
-echo "  ~/.claude/agents/go-review-team/ -> go-review-team/*.md (5 agents)"
-echo "  ~/.claude/skills/feature-review/SKILL.md -> feature-review-team/SKILL.md"
-echo "  ~/.claude/agents/feature-review-team/ -> feature-review-team/*.md (6 agents)"
-echo "  ~/.claude/skills/product-manager/ -> product-manager/*.md (skill + 2 templates)"
-echo "  ~/.claude/commands/ -> commands/*.md (4 commands)"
-echo "  ~/.agents/skills/ <= copied from codex-skills/* (2 skills)"
+echo "Installed Claude-native skills:"
+echo "  ~/.claude/skills/product-manager -> claude-native/product-manager"
+echo "  ~/.claude/skills/go-review -> claude-native/go-review-team"
+echo "  ~/.claude/skills/feature-review -> claude-native/feature-review-team"
+echo "Removed retired command layer: ~/.claude/commands"

@@ -1,109 +1,76 @@
 # skills
 
-A collection of Claude Code skills, agent-installed skills, and agent teams for code review, feature acceptance review, and product analysis.
+Central repo for personal AI skills.
 
-## Skills
+Portable skills live as top-level directories and are symlinked into both:
 
-### `/go-review` — Go Code Review
+- `~/.agents/skills/<skill>`
+- `~/.claude/skills/<skill>`
 
-Spawns a team of 4 specialized reviewers (structure, errors, style, security) that analyze all Go source files and produce a consolidated, prioritized report.
+Claude-native skills live under `claude-native/`.
 
-```
-/go-review                        # review entire project
-/go-review ./cmd/server           # review a subdirectory
-/go-review . security             # run only the security reviewer
-/go-review ./pkg error,style      # combine path and focus
-```
+## Portable Skills
 
-**Focus options:** `structure`, `error`, `style`, `security`
+- `commit` — Create clean local-only git commits without pushing.
+- `chrome-reading-list` — Export Chrome Reading List data to CSV/JSON.
+- `docs` — Update `CLAUDE.md`, `README.md`, and `docs/` from source truth.
+- `grill-me` — Stress-test a plan or design through one-question-at-a-time interview.
+- `improve-codebase-architecture` — Find module-deepening opportunities.
+- `prd-to-issues` — Break a PRD into vertical-slice GitHub issues.
+- `prd-to-plan` — Turn a PRD into a phased tracer-bullet implementation plan.
+- `product-manager` — Codex-compatible product and market analysis workflow.
+- `review-loop` — Iterative worker/reviewer quality loop.
+- `ship` — Commit, push, and open/reuse a PR.
+- `skill-parity-audit` — Compare skill roots for missing, drifted, and broken skills.
+- `tdd` — Test-driven development with red/green/refactor loops.
+- `work-prs` — Process open non-draft PRs with complete checks, fix failures/blockers, and push targeted fixes.
+- `write-a-prd` — Interview, design, and draft a PRD as a GitHub issue.
 
-### `/feature-review` — Feature Acceptance Review
+`rebase` is intentionally not a skill. The old `commands/` layer is retired.
 
-Spawns a team of 5 specialized reviewers (product, safety, quality, maintainability, documentation) that evaluate a feature or PR and produce an acceptance verdict.
+## Claude-Native Skills
 
-```
-/feature-review #42               # review a pull request
-/feature-review scanner           # review a feature by name
-/feature-review #15 safety,quality  # review specific aspects only
-```
-
-**Focus options:** `product`, `safety`, `quality`, `maintainability`, `documentation`
-
-### `/product-manager` — Product Analysis
-
-Analyzes a codebase, dispatches 4 research agents to investigate competitors, market trends, user pain points, and distribution channels, then delivers a structured product brief with prioritized feature recommendations.
-
-## Agent-Installed Skills
-
-The repo also includes two skills installed to `~/.agents/skills/`:
-
-- `commit` — Create clean local-only git commits from the current worktree without pushing or opening a PR.
-- `ship` — Follow the `commit` workflow, then push the branch and create a PR only if one does not already exist.
-
-### Commands
-
-Slash commands for common git workflows:
-
-- `/commit` — Commit the current changeset (splits discrete changes into separate commits)
-- `/docs` — Update CLAUDE.md and README.md to reflect the current codebase
-- `/rebase` — Rebase the current branch on main and resolve conflicts
-- `/ship` — Commit, push, and open a PR for the current branch
+- `claude-native/product-manager/` — Claude-native product-manager workflow.
+- `claude-native/go-review-team/` — Claude `/go-review` skill plus Go reviewer agents.
+- `claude-native/feature-review-team/` — Claude `/feature-review` skill plus acceptance reviewer agents.
 
 ## Installation
 
-Clone the repo and run the install script:
+Run:
 
 ```bash
-git clone <repo-url> ~/dev/skills
-cd ~/dev/skills
-./install.sh
+~/dev/skills/install.sh
 ```
 
-The installer uses two install modes:
+The installer:
 
-- Claude-facing skills, agents, and commands are symlinked into `~/.claude/`.
-- Repo-managed Codex skills under `codex-skills/` are copied into `~/.agents/skills/`.
-
-This split is intentional: Codex skill discovery does not reliably pick up symlinked skill files under `~/.agents/skills/`.
-
-After changing Claude-facing skills or commands, run `/reload-plugins` in Claude Code.
-After changing `codex-skills/`, rerun `./install.sh` to refresh the copied files.
+- Symlinks portable top-level skills into `~/.agents/skills`.
+- Symlinks portable top-level skills into `~/.claude/skills`.
+- Symlinks Claude-native skills and team directories into Claude.
+- Removes stale `~/.claude/commands`.
+- Removes stale installed `rebase` skills.
 
 ## Directory Structure
 
-```
+```text
 skills/
-├── go-review-team/
-│   ├── SKILL.md                   # /go-review skill
-│   ├── review-lead.md             # orchestrator agent
-│   ├── security-reviewer.md
-│   ├── style-reviewer.md
-│   ├── error-reviewer.md
-│   └── structure-reviewer.md
-├── feature-review-team/
-│   ├── SKILL.md                   # /feature-review skill
-│   ├── acceptance-lead.md         # orchestrator agent
-│   ├── product-reviewer.md
-│   ├── safety-reviewer.md
-│   ├── quality-reviewer.md
-│   ├── maintainability-reviewer.md
-│   └── documentation-reviewer.md
-├── product-manager/
-│   ├── SKILL.md                   # /product-manager skill
-│   ├── research-agent.md
-│   └── product-brief-template.md
-├── commands/
-│   ├── commit.md                  # /commit command
-│   ├── docs.md                    # /docs command
-│   ├── rebase.md                  # /rebase command
-│   └── ship.md                    # /ship command
-├── codex-skills/
-│   ├── commit/
-│   └── ship/
+├── commit/
+├── chrome-reading-list/
+├── docs/
+├── grill-me/
+├── improve-codebase-architecture/
+├── prd-to-issues/
+├── prd-to-plan/
+├── product-manager/              # portable/Codex-compatible
+├── review-loop/
+├── ship/
+├── skill-parity-audit/
+├── tdd/
+├── work-prs/
+├── write-a-prd/
+├── claude-native/
+│   ├── product-manager/
+│   ├── go-review-team/
+│   └── feature-review-team/
 └── install.sh
 ```
-
-## Updating
-
-- Changes under `go-review-team/`, `feature-review-team/`, `product-manager/`, and `commands/` are live through symlinks. Run `/reload-plugins` inside Claude Code to pick them up.
-- Changes under `codex-skills/` are copied into `~/.agents/skills/`. Rerun `./install.sh` after editing them.

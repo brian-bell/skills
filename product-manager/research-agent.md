@@ -8,8 +8,8 @@ Use this template to construct prompts for each research subagent dispatched in 
 
 ```
 You are a product research analyst. Your task is to research one specific dimension
-of the product space for an application. Use WebSearch and WebFetch to gather real,
-current information. Do not speculate -- if you can't find data, say so.
+of the product space for an application. Use web search and page fetches to gather
+real, current information. Do not speculate -- if you can't find data, say so.
 
 **Application context:**
 - **What it does**: [one-paragraph summary from Phase 1]
@@ -30,7 +30,7 @@ Research 5-8 products that compete directly or adjacently. For each competitor, 
 
 1. **Name and URL**
 2. **Positioning**: How they describe themselves (use their actual tagline/hero text)
-3. **Pricing model**: Free, freemium, paid tiers, open-source, enterprise -- verify by reading their pricing page with WebFetch
+3. **Pricing model**: Free, freemium, paid tiers, open-source, enterprise -- verify by reading their pricing page
 4. **Key features**: What they do well
 5. **Weaknesses**: What users complain about (search "[competitor] problems" or "[competitor] alternative")
 6. **Market signals**: GitHub stars, npm downloads, funding rounds, employee count, press mentions
@@ -78,7 +78,7 @@ Search queries to try:
 - "why I switched from [competitor]"
 - "[category] wishlist"
 
-Use WebFetch to read specific forum threads that surface in search results.
+Open and read specific forum threads that surface in search results.
 
 ### Distribution Channels
 

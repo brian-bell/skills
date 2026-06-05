@@ -1,66 +1,68 @@
 # Skills Repo
 
-A git repo of Claude Code skills, agent-installed skills, and agent teams. Claude-facing assets are installed via symlinks to `~/.claude/`; repo-managed Codex skills are copied into `~/.agents/skills/`.
+This repository is the central source for personal AI skills.
 
-## Repo Layout
+## Current Layout
 
-- `<name>-team/` directories contain agent teams (a lead agent + specialist agents)
-- `<name>-team/SKILL.md` is the user-invocable skill that launches the team
-- Other `.md` files in team directories are agent definitions
-- `product-manager/` follows the same pattern (SKILL.md + supporting templates) but uses a flat name instead of `-team/` suffix
-- `commands/` contains slash commands (e.g. `/commit`, `/ship`)
-- `codex-skills/` contains repo-managed agent-installed skills
-- `install.sh` symlinks Claude-facing assets into `~/.claude/` and copies repo-managed Codex skills into `~/.agents/skills/`
+- Portable skills live as top-level directories named after the skill.
+- Top-level portable skills are symlinked into both `~/.agents/skills` and `~/.claude/skills`.
+- Claude-native skills live under `claude-native/`.
+- `commands/` and `codex-skills/` are retired.
+- `rebase` is intentionally not a skill.
 
-## Install Targets
+## Portable Skill Directories
+
+Portable skills currently include:
+
+- `commit`
+- `chrome-reading-list`
+- `docs`
+- `grill-me`
+- `improve-codebase-architecture`
+- `prd-to-issues`
+- `prd-to-plan`
+- `product-manager`
+- `review-loop`
+- `ship`
+- `skill-parity-audit`
+- `tdd`
+- `work-prs`
+- `write-a-prd`
+
+## Claude-Native Assets
+
+- `claude-native/product-manager/` contains the Claude-native product-manager workflow.
+- `claude-native/go-review-team/` contains the Claude `/go-review` launcher and reviewer agents.
+- `claude-native/feature-review-team/` contains the Claude `/feature-review` launcher and acceptance reviewer agents.
+
+Do not force Claude-native assets into portable Codex-compatible shape unless explicitly asked.
+
+## Installation
+
+Run:
+
+```bash
+./install.sh
+```
+
+The installer symlinks repo directories into:
 
 | Repo path | Installed to |
 |---|---|
-| `<name>-team/SKILL.md` | `~/.claude/skills/<name>/SKILL.md` |
-| `<name>-team/<agent>.md` | `~/.claude/agents/<name>-team/<agent>.md` |
-| `commands/<cmd>.md` | `~/.claude/commands/<cmd>.md` |
-| `codex-skills/<name>/*` | `~/.agents/skills/<name>/*` |
+| Top-level portable skill | `~/.agents/skills/<name>` |
+| Top-level portable skill | `~/.claude/skills/<name>` |
+| `claude-native/product-manager` | `~/.claude/skills/product-manager` |
+| `claude-native/go-review-team` | `~/.claude/skills/go-review` |
+| `claude-native/feature-review-team` | `~/.claude/skills/feature-review` |
+| `claude-native/go-review-team/*.md` | `~/.claude/agents/go-review-team/*.md` |
+| `claude-native/feature-review-team/*.md` | `~/.claude/agents/feature-review-team/*.md` |
 
-Claude-facing installs use symlinks, so edits take effect after `/reload-plugins`.
-Repo-managed Codex skills are copied, so rerun `./install.sh` after editing `codex-skills/`.
+The installer also removes stale `~/.claude/commands` and stale installed `rebase` skills.
 
-Current repo-managed agent-installed skills:
+## Conventions
 
-- `commit`
-- `ship`
-
-## File Anatomy
-
-### Agent files
-
-```yaml
----
-name: security-reviewer          # referenced by subagent_type in Agent tool
-description: One-line summary    # shown in agent listings
-tools: Read, Glob, Grep, ...    # tools the agent can use
-model: sonnet                    # model to use
-effort: high                     # effort level
----
-
-System prompt goes here.
-```
-
-### Skill files (SKILL.md)
-
-```yaml
----
-name: go-review                  # slash command name
-description: Usage summary       # shown in skill listings
-user_invocable: true             # makes it available as /name
----
-
-Instructions for how to invoke the agent team.
-```
-
-## Adding a New Skill/Team
-
-1. Create a `<name>-team/` directory
-2. Add `SKILL.md` with `user_invocable: true` frontmatter
-3. Add agent `.md` files (lead + specialists)
-4. Add install wiring to `install.sh` if the new skill needs it
-5. Run `./install.sh && /reload-plugins`
+- Keep portable skill frontmatter minimal: `name` and `description`.
+- Put Codex UI metadata in `agents/openai.yaml`.
+- Keep Claude-only agent frontmatter in `claude-native/` files only.
+- Prefer symlinks over copies so `~/dev/skills` remains the single source of truth.
+- Do not reintroduce the old `commands/` or `codex-skills/` split.
