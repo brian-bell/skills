@@ -341,7 +341,7 @@ description: Imported from a loopback URL through the command.
         .expect("write response");
     });
 
-    let output = Command::new(std::env::var("CARGO_BIN_EXE_skill-importer").expect("binary path"))
+    let output = loopback_skill_importer_command()
         .args([
             "import",
             "url",
@@ -435,7 +435,7 @@ fn import_url_command_rejects_oversized_loopback_response() {
         }
     });
 
-    let output = Command::new(std::env::var("CARGO_BIN_EXE_skill-importer").expect("binary path"))
+    let output = loopback_skill_importer_command()
         .args([
             "import",
             "url",
@@ -482,6 +482,24 @@ description: {description}
     )
     .expect("skill file");
     skill_dir
+}
+
+fn loopback_skill_importer_command() -> Command {
+    let mut command =
+        Command::new(std::env::var("CARGO_BIN_EXE_skill-importer").expect("binary path"));
+    for key in [
+        "ALL_PROXY",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "NO_PROXY",
+        "all_proxy",
+        "http_proxy",
+        "https_proxy",
+        "no_proxy",
+    ] {
+        command.env_remove(key);
+    }
+    command
 }
 
 fn find_skill<'skills>(skills: &'skills [Value], name: &str) -> &'skills Value {
