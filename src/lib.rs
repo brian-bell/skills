@@ -3,6 +3,8 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DiscoveryRoots {
     pub canonical_root: PathBuf,
@@ -56,6 +58,33 @@ pub enum AgentEnablement {
     Both,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct JsonInventory {
+    pub skills: Vec<JsonSkillEntry>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct JsonSkillEntry {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub source: &'static str,
+    pub enablement: JsonAgentEnablement,
+    pub agent_entries: JsonAgentEntries,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct JsonAgentEnablement {
+    pub claude_code: bool,
+    pub codex: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct JsonAgentEntries {
+    pub claude_code: &'static str,
+    pub codex: &'static str,
+}
+
 #[derive(Debug, Clone)]
 struct SkillDraft {
     name: String,
@@ -102,6 +131,28 @@ pub fn discover_skills(roots: &DiscoveryRoots) -> io::Result<SkillInventory> {
             })
             .collect(),
     })
+}
+
+pub fn inventory_to_json(inventory: &SkillInventory) -> JsonInventory {
+    JsonInventory {
+        skills: inventory
+            .skills
+            .iter()
+            .map(|skill| JsonSkillEntry {
+                name: skill.name.clone(),
+                description: skill.description.clone(),
+                source: skill.source.as_json_str(),
+                enablement: JsonAgentEnablement {
+                    claude_code: skill.agent_entries.claude_code.is_enabled(),
+                    codex: skill.agent_entries.codex.is_enabled(),
+                },
+                agent_entries: JsonAgentEntries {
+                    claude_code: skill.agent_entries.claude_code.as_json_str(),
+                    codex: skill.agent_entries.codex.as_json_str(),
+                },
+            })
+            .collect(),
+    }
 }
 
 fn discover_skill_collection(
@@ -341,6 +392,27 @@ impl AgentEntryStatus {
                 | Self::ImportedSymlink
                 | Self::ExternalSymlink
         )
+    }
+
+    fn as_json_str(self) -> &'static str {
+        match self {
+            Self::Missing => "missing",
+            Self::SkillDirectory => "skill_directory",
+            Self::CanonicalSymlink => "canonical_symlink",
+            Self::ImportedSymlink => "imported_symlink",
+            Self::ExternalSymlink => "external_symlink",
+            Self::BrokenSymlink => "broken_symlink",
+        }
+    }
+}
+
+impl SkillSource {
+    fn as_json_str(self) -> &'static str {
+        match self {
+            Self::Canonical => "canonical",
+            Self::Imported => "imported",
+            Self::AgentOnly => "agent_only",
+        }
     }
 }
 
