@@ -323,6 +323,7 @@ description: Imported from a loopback URL through the command.
                 Err(error) => panic!("accept request: {error}"),
             }
         };
+        stream.set_nonblocking(false).expect("blocking stream");
         let mut request = [0_u8; 1024];
         let bytes_read = stream.read(&mut request).expect("read request");
         let request = String::from_utf8_lossy(&request[..bytes_read]);
@@ -372,6 +373,97 @@ description: Imported from a loopback URL through the command.
             .join("command-url-import")
             .join("SKILL.md")
             .exists()
+    );
+}
+
+#[test]
+fn import_url_command_rejects_oversized_loopback_response() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let canonical_root = temp.path().join("canonical");
+    let imports_root = temp.path().join("imports");
+    let listener = TcpListener::bind("127.0.0.1:0").expect("loopback listener");
+    listener
+        .set_nonblocking(true)
+        .expect("nonblocking listener");
+    let url = format!(
+        "http://{}/oversized.md",
+        listener.local_addr().expect("listener address")
+    );
+    let server = thread::spawn(move || {
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(
+                        std::time::Instant::now() < deadline,
+                        "timed out waiting for loopback request"
+                    );
+                    thread::sleep(Duration::from_millis(10));
+                }
+                Err(error) => panic!("accept request: {error}"),
+            }
+        };
+        stream.set_nonblocking(false).expect("blocking stream");
+        let mut request = [0_u8; 1024];
+        let bytes_read = stream.read(&mut request).expect("read request");
+        let request = String::from_utf8_lossy(&request[..bytes_read]);
+        assert!(
+            request.starts_with("GET /oversized.md "),
+            "request: {request}"
+        );
+
+        stream
+            .write_all(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/markdown\r\nConnection: close\r\n\r\n",
+            )
+            .expect("write response headers");
+        let oversized_body = vec![b'a'; 1024 * 1024 + 1];
+        for chunk in oversized_body.chunks(8192) {
+            if let Err(error) = stream.write_all(chunk) {
+                assert!(
+                    matches!(
+                        error.kind(),
+                        std::io::ErrorKind::BrokenPipe
+                            | std::io::ErrorKind::ConnectionReset
+                            | std::io::ErrorKind::ConnectionAborted
+                    ),
+                    "write oversized response body: {error}"
+                );
+                break;
+            }
+        }
+    });
+
+    let output = Command::new(std::env::var("CARGO_BIN_EXE_skill-importer").expect("binary path"))
+        .args([
+            "import",
+            "url",
+            "--json",
+            "--url",
+            url.as_str(),
+            "--canonical-root",
+            canonical_root.to_str().expect("canonical root path"),
+            "--imports-root",
+            imports_root.to_str().expect("imports root path"),
+        ])
+        .output()
+        .expect("run import url command");
+
+    server.join().expect("server finishes");
+    assert!(
+        !output.status.success(),
+        "oversized response should fail: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("exceeds the 1048576 byte limit"),
+        "stderr should explain the size limit: {stderr}"
+    );
+    assert!(
+        !imports_root.exists(),
+        "oversized URL response should not create storage"
     );
 }
 

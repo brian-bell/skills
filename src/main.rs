@@ -11,6 +11,8 @@ use skill_importer::{
     import_markdown_skill, import_url_skill, inventory_to_json,
 };
 
+const MAX_SKILL_MARKDOWN_BYTES: u64 = 1024 * 1024;
+
 fn main() -> ExitCode {
     match run(env::args_os().skip(1), io::stdout()) {
         Ok(()) => ExitCode::SUCCESS,
@@ -381,13 +383,31 @@ impl SkillUrlFetcher for UreqUrlFetcher {
             agent.get(url).call().map_err(|error| SkillUrlFetchError {
                 message: error.to_string(),
             })?;
-        response
-            .into_body()
-            .read_to_string()
-            .map_err(|error| SkillUrlFetchError {
-                message: error.to_string(),
-            })
+        read_limited_skill_markdown(response.into_body().into_reader())
     }
+}
+
+fn read_limited_skill_markdown(reader: impl Read) -> Result<String, SkillUrlFetchError> {
+    let mut bytes = Vec::new();
+    reader
+        .take(MAX_SKILL_MARKDOWN_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|error| SkillUrlFetchError {
+            message: error.to_string(),
+        })?;
+
+    if bytes.len() as u64 > MAX_SKILL_MARKDOWN_BYTES {
+        return Err(SkillUrlFetchError {
+            message: format!(
+                "skill Markdown response exceeds the {} byte limit",
+                MAX_SKILL_MARKDOWN_BYTES
+            ),
+        });
+    }
+
+    String::from_utf8(bytes).map_err(|error| SkillUrlFetchError {
+        message: format!("skill Markdown response is not valid UTF-8: {error}"),
+    })
 }
 
 fn usage() -> String {
