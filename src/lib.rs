@@ -85,7 +85,7 @@ pub struct ImportResult {
 pub struct ImportManifest {
     pub source_type: ImportSourceType,
     pub source_location: Option<String>,
-    pub imported_at: String,
+    pub imported_at: u64,
     pub content_hash: String,
     pub promoted: bool,
 }
@@ -197,6 +197,7 @@ pub fn import_markdown_skill(
     )?;
 
     let skill_path = roots.imports_root.join(&metadata.name);
+    let skill_file_path = skill_path.join("SKILL.md");
     let manifest_path = skill_path.join("import.json");
     let manifest = ImportManifest {
         source_type: ImportSourceType::Markdown,
@@ -237,7 +238,7 @@ pub fn import_markdown_skill(
             },
             ImportAction {
                 action: ImportActionKind::WriteSkill,
-                path: roots.imports_root.join(&skill_name).join("SKILL.md"),
+                path: skill_file_path,
             },
             ImportAction {
                 action: ImportActionKind::WriteManifest,
@@ -413,7 +414,7 @@ fn write_import_files(
     Ok(())
 }
 
-fn current_import_time() -> Result<String, ImportError> {
+fn current_import_time() -> Result<u64, ImportError> {
     let seconds = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_err(|error| {
@@ -422,7 +423,7 @@ fn current_import_time() -> Result<String, ImportError> {
             )))
         })?
         .as_secs();
-    Ok(format!("unix:{seconds}"))
+    Ok(seconds)
 }
 
 fn content_hash(contents: &str) -> String {

@@ -1,8 +1,8 @@
 use std::fs;
 
 use skill_importer::{
-    AgentEnablement, DiscoveryRoots, ImportError, ImportMarkdownRequest, SkillSource,
-    discover_skills, import_markdown_skill,
+    AgentEnablement, DiscoveryRoots, ImportActionKind, ImportError, ImportMarkdownRequest,
+    SkillSource, discover_skills, import_markdown_skill,
 };
 
 #[test]
@@ -34,6 +34,15 @@ description: Helps pasted imports land safely.
 
     assert_eq!(import.skill_name, "pasted-helper");
     assert_eq!(import.actions.len(), 3);
+    let write_skill_action = import
+        .actions
+        .iter()
+        .find(|action| action.action == ImportActionKind::WriteSkill)
+        .expect("write skill action");
+    assert_eq!(
+        write_skill_action.path,
+        roots.imports_root.join("pasted-helper").join("SKILL.md")
+    );
     assert_eq!(
         fs::read_to_string(roots.imports_root.join("pasted-helper").join("SKILL.md"))
             .expect("stored skill"),
@@ -52,7 +61,10 @@ description: Helps pasted imports land safely.
         manifest["content_hash"],
         "sha256:176dde4267c52602109b1fc7fe30dc368c7c8a02fb0232dd2378941cc56296f3"
     );
-    assert!(manifest["imported_at"].as_str().expect("import time").len() > 10);
+    assert!(
+        manifest["imported_at"].as_u64().expect("import time") > 0,
+        "imported_at should be a Unix timestamp"
+    );
 
     let inventory = discover_skills(&roots).expect("discovery succeeds");
     assert_eq!(inventory.skills.len(), 1);
