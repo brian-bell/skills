@@ -5,7 +5,7 @@ description: Review and merge multiple pull requests with an iterative reviewer 
 
 # Merge PRs With Review Loop
 
-Use this workflow to land multiple PRs with explicit quality gates, a conflict-minimizing order, and verification after each merge. Keep merge control in the main agent; use reviewer subagents only for bounded read-only critique or final integration review.
+Use this workflow to land multiple PRs with explicit quality gates, a conflict-minimizing order, and verification after each merge. This skill composes with `$review-loop`: use `$review-loop` for the isolated PR reviews and the final integration review, while this skill owns PR ordering, merge safety, conflict handling, and Git/GitHub execution.
 
 ## Defaults
 
@@ -16,6 +16,17 @@ Use this workflow to land multiple PRs with explicit quality gates, a conflict-m
 - Verification: use the repo's documented format, test, lint, build, and CI commands.
 
 Honor user overrides for PR list, order, merge method, quality gate, loop count, branch names, or whether pushing/merging is allowed. If the user asks only for a merge plan or dry run, do not merge or push.
+
+## Review-Loop Composition
+
+This skill must use the actual `$review-loop` workflow for critique loops. Do not replace it with an ad hoc self-review.
+
+- Load and follow `$review-loop` defaults unless the user overrides them here.
+- Pass this skill's quality gate, minimum loops, and maximum loops into each `$review-loop` invocation.
+- Use `$review-loop` in review-existing mode for each PR before it is eligible to merge.
+- Use `$review-loop` again after the chosen merge path completes to review the combined result.
+- Give `$review-loop` only the bounded work product: PR metadata, diffs, relevant file excerpts, verification results, prior review findings, and task-specific criteria. Do not include private reasoning.
+- Keep merge control in the main agent. `$review-loop` may identify findings and proposed fixes, but this skill decides whether a PR branch, local integration branch, or remote PR merge path is safe.
 
 ## 1. Establish Safety And Inputs
 
@@ -55,17 +66,17 @@ If the best order differs from the user's requested order, explain the reason br
 
 ## 3. Review Each PR In Isolation
 
-Run a review-loop for each PR before merging.
+Run `$review-loop` for each PR before merging. Treat a PR as ineligible to merge until its `$review-loop` result satisfies the configured gate, or until the user explicitly accepts the below-gate risk.
 
-For each loop:
-1. Give the reviewer only the PR title, base/head SHAs, diff or file list, relevant tests, prior loop findings, and task-specific criteria.
-2. Require a score and actionable findings with file/line references.
-3. If findings are false positives, document the evidence from code or tests before ignoring them.
-4. If score is below the quality gate or findings are blocking:
+For each PR-level `$review-loop`:
+1. Invoke `$review-loop` in review-existing mode with the PR title, base/head SHAs, diff or file list, relevant tests, prior loop findings, and task-specific criteria.
+2. Require the `$review-loop` report to include score, loop count, actionable findings, and file/line references where applicable.
+3. If `$review-loop` findings are false positives, document the evidence from code or tests before ignoring them.
+4. If the `$review-loop` score is below the quality gate or findings are blocking:
    - For normal `gh pr merge` landing, the fix must land on the PR branch or the PR remains unmerged.
    - For local integration branch landing, merge the PR head locally, make any integration-only fix on the integration branch, verify it there, and push/open/merge that integration branch only with permission.
    - Require explicit user permission before pushing fixes to a contributor PR branch, even when `maintainerCanModify` is true.
-5. Apply the review-loop stop order exactly:
+5. Let `$review-loop` apply its stop order exactly:
    - If loops completed is below the minimum, continue even if the score already meets the gate.
    - If the minimum is met and the score is at or above the quality gate, proceed.
    - If the maximum loop count is reached below the quality gate, stop and report the blocker.
@@ -120,7 +131,7 @@ If a merge reveals an unexpected semantic issue, fix it in the merge/integration
 
 ## 5. Final Integration Review
 
-After the selected merge path is complete, run one final review-loop focused on combined behavior.
+After the selected merge path is complete, run one final `$review-loop` focused on combined behavior.
 
 - For the remote PR-by-PR path, sync the local base to the latest remote base and review the combined base state.
 - For the local integration branch path, review the integration branch before pushing or opening it.
