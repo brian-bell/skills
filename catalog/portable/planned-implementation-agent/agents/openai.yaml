@@ -1,0 +1,4 @@
+interface:
+  display_name: "Planned Implementation Agent"
+  short_description: "Reviewed plans with TDD worker execution"
+  default_prompt: "Use $planned-implementation-agent to plan, review, and delegate this implementation task."
