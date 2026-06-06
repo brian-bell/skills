@@ -117,6 +117,11 @@ pub struct PromoteSkillRequest<'request> {
     pub skill_name: &'request str,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DeleteImportRequest<'request> {
+    pub skill_name: &'request str,
+}
+
 pub trait SkillUrlFetcher {
     fn fetch_skill_markdown(&self, url: &str) -> Result<String, SkillUrlFetchError>;
 }
@@ -727,6 +732,30 @@ pub fn promote_imported_skill(
     })
 }
 
+pub fn delete_unpromoted_import(
+    roots: &DiscoveryRoots,
+    request: DeleteImportRequest<'_>,
+) -> Result<SkillOperationResult, SkillOperationFailure> {
+    let plan = preflight_delete_import(roots, request.skill_name)?;
+    let mut actions = Vec::new();
+
+    fs::remove_dir_all(&plan.import_path)
+        .map_err(SkillOperationError::Io)
+        .map_err(|error| operation_failure(error, actions.clone()))?;
+    actions.push(SkillAction {
+        action: SkillActionKind::RemoveDirectory,
+        agent: None,
+        path: plan.import_path,
+        target: None,
+        source: None,
+    });
+
+    Ok(SkillOperationResult {
+        skill_name: plan.skill_name,
+        actions,
+    })
+}
+
 fn validate_import_markdown(contents: &str) -> Result<SkillMetadata, ImportError> {
     let metadata = parse_skill_frontmatter(contents)?;
 
@@ -1178,6 +1207,12 @@ struct PromotionPlan {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct DeleteImportPlan {
+    skill_name: String,
+    import_path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct AgentRelinkPlan {
     agent: SkillAgent,
     path: PathBuf,
@@ -1303,7 +1338,7 @@ fn preflight_promotion(
             ));
         }
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return unsupported_or_unknown_skill(roots, skill_name);
+            return Err(unsupported_or_unknown_import_error(roots, skill_name));
         }
         Err(error) => {
             return Err(empty_operation_failure(SkillOperationError::Io(error)));
@@ -1363,28 +1398,112 @@ fn preflight_promotion(
     })
 }
 
-fn unsupported_or_unknown_skill(
+fn preflight_delete_import(
     roots: &DiscoveryRoots,
     skill_name: &str,
-) -> Result<PromotionPlan, SkillOperationFailure> {
-    let inventory = discover_skills(roots)
+) -> Result<DeleteImportPlan, SkillOperationFailure> {
+    if !skill_name_is_path_segment(skill_name) {
+        return Err(empty_operation_failure(SkillOperationError::UnknownSkill {
+            name: skill_name.to_string(),
+        }));
+    }
+
+    let imports_root = canonicalize_existing_ancestor(&roots.imports_root)
         .map_err(SkillOperationError::Io)
         .map_err(empty_operation_failure)?;
-    if inventory
-        .skills
-        .iter()
-        .any(|skill| skill.name == skill_name)
-    {
+    let import_path = imports_root.join(skill_name);
+    match fs::symlink_metadata(&import_path) {
+        Ok(metadata) if metadata.is_dir() || metadata.file_type().is_symlink() => {}
+        Ok(_) => {
+            return Err(empty_operation_failure(
+                SkillOperationError::UnsupportedSkillSource {
+                    name: skill_name.to_string(),
+                },
+            ));
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Err(unsupported_or_unknown_import_error(roots, skill_name));
+        }
+        Err(error) => {
+            return Err(empty_operation_failure(SkillOperationError::Io(error)));
+        }
+    }
+
+    let import_path = fs::canonicalize(import_path)
+        .map_err(SkillOperationError::Io)
+        .map_err(empty_operation_failure)?;
+    let manifest_path = import_path.join("import.json");
+    let manifest = read_import_manifest(&manifest_path)
+        .map_err(SkillOperationError::Io)
+        .map_err(empty_operation_failure)?;
+    if manifest.promoted {
         return Err(empty_operation_failure(
-            SkillOperationError::UnsupportedSkillSource {
+            SkillOperationError::AlreadyPromoted {
                 name: skill_name.to_string(),
             },
         ));
     }
 
-    Err(empty_operation_failure(SkillOperationError::UnknownSkill {
+    let canonical_root = canonicalize_existing_ancestor(&roots.canonical_root)
+        .map_err(SkillOperationError::Io)
+        .map_err(empty_operation_failure)?;
+    let canonical_path = canonical_root.join(skill_name);
+    match fs::symlink_metadata(&canonical_path) {
+        Ok(_) => {
+            return Err(empty_operation_failure(SkillOperationError::Collision {
+                name: skill_name.to_string(),
+                path: canonical_path,
+            }));
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(empty_operation_failure(SkillOperationError::Io(error))),
+    }
+
+    for agent in [SkillAgent::ClaudeCode, SkillAgent::Codex] {
+        let path = agent_root(roots, agent).join(skill_name);
+        if agent_entry_points_to(&path, &import_path)
+            .map_err(SkillOperationError::Io)
+            .map_err(empty_operation_failure)?
+        {
+            return Err(empty_operation_failure(
+                SkillOperationError::EnabledImport {
+                    name: skill_name.to_string(),
+                    path,
+                },
+            ));
+        }
+    }
+
+    Ok(DeleteImportPlan {
+        skill_name: skill_name.to_string(),
+        import_path,
+    })
+}
+
+fn unsupported_or_unknown_import_error(
+    roots: &DiscoveryRoots,
+    skill_name: &str,
+) -> SkillOperationFailure {
+    let inventory = match discover_skills(roots)
+        .map_err(SkillOperationError::Io)
+        .map_err(empty_operation_failure)
+    {
+        Ok(inventory) => inventory,
+        Err(failure) => return failure,
+    };
+    if inventory
+        .skills
+        .iter()
+        .any(|skill| skill.name == skill_name)
+    {
+        return empty_operation_failure(SkillOperationError::UnsupportedSkillSource {
+            name: skill_name.to_string(),
+        });
+    }
+
+    empty_operation_failure(SkillOperationError::UnknownSkill {
         name: skill_name.to_string(),
-    }))
+    })
 }
 
 fn unique_agents(agents: &[SkillAgent]) -> Vec<SkillAgent> {
@@ -1438,6 +1557,23 @@ fn exact_managed_symlink_state(
             })
         }
         Err(error) => Err(SkillOperationError::Io(error)),
+    }
+}
+
+fn agent_entry_points_to(path: &Path, expected_target: &Path) -> io::Result<bool> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error),
+    };
+    if !metadata.file_type().is_symlink() {
+        return Ok(false);
+    }
+
+    match symlink_target(path) {
+        Ok(target) => Ok(target == expected_target),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(error),
     }
 }
 

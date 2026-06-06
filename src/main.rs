@@ -6,9 +6,10 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use skill_importer::{
-    DisableSkillRequest, DiscoveryRoots, EnableSkillRequest, ImportLocalPathRequest,
-    ImportMarkdownRequest, ImportUrlRequest, PromoteSkillRequest, SkillAgent, SkillOperationResult,
-    SkillUrlFetchError, SkillUrlFetcher, disable_skill, discover_skills, enable_skill,
+    DeleteImportRequest, DisableSkillRequest, DiscoveryRoots, EnableSkillRequest,
+    ImportLocalPathRequest, ImportMarkdownRequest, ImportUrlRequest, PromoteSkillRequest,
+    SkillAgent, SkillOperationResult, SkillUrlFetchError, SkillUrlFetcher,
+    delete_unpromoted_import, disable_skill, discover_skills, enable_skill,
     import_local_path_skill, import_markdown_skill, import_url_skill, inventory_to_json,
     promote_imported_skill,
 };
@@ -129,6 +130,16 @@ fn run_with_url_fetcher(
             .map_err(|failure| format!("failed to promote skill: {}", failure.error))?;
             write_operation_json(&mut stdout, &result)
         }
+        Command::Delete { roots, skill_name } => {
+            let result = delete_unpromoted_import(
+                &roots,
+                DeleteImportRequest {
+                    skill_name: skill_name.as_str(),
+                },
+            )
+            .map_err(|failure| format!("failed to delete import: {}", failure.error))?;
+            write_operation_json(&mut stdout, &result)
+        }
     }
 }
 
@@ -163,6 +174,10 @@ enum Command {
         roots: DiscoveryRoots,
         skill_name: String,
     },
+    Delete {
+        roots: DiscoveryRoots,
+        skill_name: String,
+    },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -186,6 +201,7 @@ impl Command {
             Some("enable") => parse_enable_disable_command(args, EnableDisableCommand::Enable),
             Some("disable") => parse_enable_disable_command(args, EnableDisableCommand::Disable),
             Some("promote") => parse_promote_command(args),
+            Some("delete") => parse_delete_command(args),
             _ => Err(format!(
                 "unknown command `{}`\n{}",
                 display_arg(command),
@@ -507,6 +523,49 @@ fn parse_promote_command(mut args: impl Iterator<Item = OsString>) -> Result<Com
     })
 }
 
+fn parse_delete_command(mut args: impl Iterator<Item = OsString>) -> Result<Command, String> {
+    let mut saw_json = false;
+    let mut roots = RootArgs::default();
+    let mut skill_name = None;
+
+    while let Some(arg) = args.next() {
+        match arg.to_str() {
+            Some("--json") => saw_json = true,
+            Some("--skill") => {
+                skill_name = Some(next_string(&mut args, "--skill")?);
+            }
+            Some("--canonical-root") => {
+                roots.canonical_root = Some(next_path(&mut args, "--canonical-root")?);
+            }
+            Some("--imports-root") => {
+                roots.imports_root = Some(next_path(&mut args, "--imports-root")?);
+            }
+            Some("--claude-code-root") => {
+                roots.claude_code_root = Some(next_path(&mut args, "--claude-code-root")?);
+            }
+            Some("--codex-root") => {
+                roots.codex_root = Some(next_path(&mut args, "--codex-root")?);
+            }
+            _ => {
+                return Err(format!(
+                    "unknown argument `{}`\n{}",
+                    display_arg(arg),
+                    usage()
+                ));
+            }
+        }
+    }
+
+    if !saw_json {
+        return Err("delete currently requires --json".to_string());
+    }
+
+    Ok(Command::Delete {
+        roots: roots.into_discovery_roots()?,
+        skill_name: skill_name.ok_or_else(|| "delete requires --skill".to_string())?,
+    })
+}
+
 fn write_operation_json(
     stdout: &mut impl Write,
     result: &SkillOperationResult,
@@ -606,7 +665,7 @@ fn read_limited_skill_markdown(reader: impl Read) -> Result<String, SkillUrlFetc
 }
 
 fn usage() -> String {
-    "usage: skill-importer list --json [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer import markdown --json [--source-location VALUE] [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer import path --json --path PATH [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer import url --json --url URL [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer enable --json --skill NAME --agent claude-code|codex [--agent claude-code|codex] [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer disable --json --skill NAME --agent claude-code|codex [--agent claude-code|codex] [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer promote --json --skill NAME [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]".to_string()
+    "usage: skill-importer list --json [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer import markdown --json [--source-location VALUE] [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer import path --json --path PATH [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer import url --json --url URL [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer enable --json --skill NAME --agent claude-code|codex [--agent claude-code|codex] [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer disable --json --skill NAME --agent claude-code|codex [--agent claude-code|codex] [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer promote --json --skill NAME [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer delete --json --skill NAME [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]".to_string()
 }
 
 #[cfg(test)]
