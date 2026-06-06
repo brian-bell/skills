@@ -15,6 +15,8 @@ Use this workflow to turn a task into a reviewed implementation plan, then deleg
 - TDD expectation: follow the `$tdd` skill by writing or updating failing tests before behavior changes whenever the codebase supports tests.
 - Handoff style: bounded worker subagent with a concrete plan, acceptance criteria, and verification commands.
 
+The plan review minimum intentionally overrides `$review-loop`'s default minimum of `2` loops for plan review only; implementation review keeps the stricter minimum of `2`.
+
 Honor user overrides for quality gate, test strategy, delegation boundaries, or whether the main agent should execute instead of a subagent.
 While this workflow is active, loop-count overrides may make the process stricter, but must not reduce plan review below `1` loop or implementation review below `2` loops unless the user explicitly cancels or opts out of this skill's workflow.
 
