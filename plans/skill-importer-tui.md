@@ -9,10 +9,10 @@
 - [x] Phase 3: Markdown Import Into Managed Storage
 - [x] Phase 4: Local Path Import With Supporting Files
 - [x] Phase 5: URL Import Behind Injectable Fetching
-- [ ] Phase 6: Repository Import With Skill Selection
-- [ ] Phase 7: Enable And Disable Per Agent
-- [ ] Phase 8: Promote Imported Skills Safely
-- [ ] Phase 9: Delete Unpromoted Imports
+- [x] Phase 6: Repository Import With Skill Selection
+- [x] Phase 7: Enable And Disable Per Agent
+- [x] Phase 8: Promote Imported Skills Safely
+- [x] Phase 9: Delete Unpromoted Imports
 - [ ] Phase 10: Keyboard-First TUI Over Core State
 
 ## Architectural decisions
@@ -166,18 +166,18 @@ Add repository import through an injectable repository provider. Repositories wi
 
 ### TDD checklist
 
-- [ ] RED: Add one behavior test for a repository provider that returns multiple valid skills and expects a selection result instead of an arbitrary import.
-- [ ] GREEN: Implement minimal repository scanning and selection-result behavior.
-- [ ] REFACTOR: Unify selected repository skill import with local path import so supporting files are preserved consistently.
+- [x] RED: Add one behavior test for a repository provider that returns multiple valid skills and expects a selection result instead of an arbitrary import.
+- [x] GREEN: Implement minimal repository scanning and selection-result behavior.
+- [x] REFACTOR: Unify selected repository skill import with local path import so supporting files are preserved consistently.
 
 ### Acceptance criteria
 
-- [ ] Repository import detects zero, one, and many valid skills.
-- [ ] Repositories with zero valid skills return a clear error.
-- [ ] Repositories with one valid skill can import it directly.
-- [ ] Repositories with multiple valid skills return an interactive selection state.
-- [ ] Importing the selected repository skill preserves supporting files.
-- [ ] Repository tests use local fixtures or injectable providers, not live remote repositories.
+- [x] Repository import detects zero, one, and many valid skills.
+- [x] Repositories with zero valid skills return a clear error.
+- [x] Repositories with one valid skill can import it directly.
+- [x] Repositories with multiple valid skills return an interactive selection state.
+- [x] Importing the selected repository skill preserves supporting files.
+- [x] Repository tests use local fixtures or injectable providers, not live remote repositories.
 
 ---
 
@@ -197,14 +197,14 @@ Support enabling imported or canonical skills for Claude Code, Codex, or both by
 
 ### Acceptance criteria
 
-- [ ] Enabling creates missing managed agent roots when needed.
-- [ ] A selected skill can be enabled for Claude Code only.
-- [ ] A selected skill can be enabled for Codex only.
-- [ ] A selected skill can be enabled for both agents.
-- [ ] Disabling removes only managed symlinks.
-- [ ] Disabling refuses to delete real directories.
-- [ ] Replacement refuses to overwrite external symlinks or unsafe existing entries.
-- [ ] Every filesystem action is reported.
+- [x] Enabling creates missing managed agent roots when needed.
+- [x] A selected skill can be enabled for Claude Code only.
+- [x] A selected skill can be enabled for Codex only.
+- [x] A selected skill can be enabled for both agents.
+- [x] Disabling removes only managed symlinks.
+- [x] Disabling refuses to delete real directories.
+- [x] Replacement refuses to overwrite external symlinks or unsafe existing entries.
+- [x] Every filesystem action is reported.
 
 ---
 
@@ -224,12 +224,12 @@ Support promoting an imported skill into the canonical local skill collection. P
 
 ### Acceptance criteria
 
-- [ ] Promotion copies the imported skill into the canonical local skill collection.
-- [ ] Promotion preserves supporting files.
-- [ ] Promotion refuses to overwrite an existing canonical skill.
-- [ ] Promotion rewrites enabled managed symlinks to point at the promoted canonical skill.
-- [ ] Promotion leaves documentation and installer scripts untouched.
-- [ ] Promotion reports all filesystem actions and failure reasons.
+- [x] Promotion copies the imported skill into the canonical local skill collection.
+- [x] Promotion preserves supporting files.
+- [x] Promotion refuses to overwrite an existing canonical skill.
+- [x] Promotion rewrites enabled managed symlinks to point at the promoted canonical skill.
+- [x] Promotion leaves documentation and installer scripts untouched.
+- [x] Promotion reports all filesystem actions and failure reasons.
 
 ---
 
@@ -249,11 +249,11 @@ Allow cleanup of rejected unpromoted imports while protecting canonical and prom
 
 ### Acceptance criteria
 
-- [ ] Unpromoted imports can be deleted from the managed imports area.
-- [ ] Canonical skills cannot be deleted through the import cleanup operation.
-- [ ] Promoted imports cannot be deleted as unpromoted experiments.
-- [ ] Deletion reports success or a clear failure reason.
-- [ ] Inventory reflects deleted imports after the operation.
+- [x] Unpromoted imports can be deleted from the managed imports area.
+- [x] Canonical skills cannot be deleted through the import cleanup operation.
+- [x] Promoted imports cannot be deleted as unpromoted experiments.
+- [x] Deletion reports success or a clear failure reason.
+- [x] Inventory reflects deleted imports after the operation.
 
 ---
 

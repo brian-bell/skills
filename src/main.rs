@@ -6,9 +6,12 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use skill_importer::{
-    DiscoveryRoots, ImportLocalPathRequest, ImportMarkdownRequest, ImportUrlRequest,
-    SkillUrlFetchError, SkillUrlFetcher, discover_skills, import_local_path_skill,
-    import_markdown_skill, import_url_skill, inventory_to_json,
+    DeleteImportRequest, DisableSkillRequest, DiscoveryRoots, EnableSkillRequest,
+    ImportLocalPathRequest, ImportMarkdownRequest, ImportUrlRequest, PromoteSkillRequest,
+    SkillAgent, SkillOperationResult, SkillUrlFetchError, SkillUrlFetcher,
+    delete_unpromoted_import, disable_skill, discover_skills, enable_skill,
+    import_local_path_skill, import_markdown_skill, import_url_skill, inventory_to_json,
+    promote_imported_skill,
 };
 
 const MAX_SKILL_MARKDOWN_BYTES: u64 = 1024 * 1024;
@@ -87,6 +90,56 @@ fn run_with_url_fetcher(
             writeln!(stdout).map_err(|error| format!("failed to write JSON: {error}"))?;
             Ok(())
         }
+        Command::Enable {
+            roots,
+            skill_name,
+            agents,
+        } => {
+            let result = enable_skill(
+                &roots,
+                EnableSkillRequest {
+                    skill_name: skill_name.as_str(),
+                    agents: &agents,
+                },
+            )
+            .map_err(|failure| format!("failed to enable skill: {}", failure.error))?;
+            write_operation_json(&mut stdout, &result)
+        }
+        Command::Disable {
+            roots,
+            skill_name,
+            agents,
+        } => {
+            let result = disable_skill(
+                &roots,
+                DisableSkillRequest {
+                    skill_name: skill_name.as_str(),
+                    agents: &agents,
+                },
+            )
+            .map_err(|failure| format!("failed to disable skill: {}", failure.error))?;
+            write_operation_json(&mut stdout, &result)
+        }
+        Command::Promote { roots, skill_name } => {
+            let result = promote_imported_skill(
+                &roots,
+                PromoteSkillRequest {
+                    skill_name: skill_name.as_str(),
+                },
+            )
+            .map_err(|failure| format!("failed to promote skill: {}", failure.error))?;
+            write_operation_json(&mut stdout, &result)
+        }
+        Command::Delete { roots, skill_name } => {
+            let result = delete_unpromoted_import(
+                &roots,
+                DeleteImportRequest {
+                    skill_name: skill_name.as_str(),
+                },
+            )
+            .map_err(|failure| format!("failed to delete import: {}", failure.error))?;
+            write_operation_json(&mut stdout, &result)
+        }
     }
 }
 
@@ -106,6 +159,24 @@ enum Command {
     ImportUrl {
         roots: DiscoveryRoots,
         url: String,
+    },
+    Enable {
+        roots: DiscoveryRoots,
+        skill_name: String,
+        agents: Vec<SkillAgent>,
+    },
+    Disable {
+        roots: DiscoveryRoots,
+        skill_name: String,
+        agents: Vec<SkillAgent>,
+    },
+    Promote {
+        roots: DiscoveryRoots,
+        skill_name: String,
+    },
+    Delete {
+        roots: DiscoveryRoots,
+        skill_name: String,
     },
 }
 
@@ -127,6 +198,10 @@ impl Command {
         match command.to_str() {
             Some("list") => parse_list_command(args),
             Some("import") => parse_import_command(args),
+            Some("enable") => parse_enable_disable_command(args, EnableDisableCommand::Enable),
+            Some("disable") => parse_enable_disable_command(args, EnableDisableCommand::Disable),
+            Some("promote") => parse_promote_command(args),
+            Some("delete") => parse_delete_command(args),
             _ => Err(format!(
                 "unknown command `{}`\n{}",
                 display_arg(command),
@@ -322,6 +397,185 @@ fn parse_import_url_command(mut args: impl Iterator<Item = OsString>) -> Result<
     })
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum EnableDisableCommand {
+    Enable,
+    Disable,
+}
+
+fn parse_enable_disable_command(
+    mut args: impl Iterator<Item = OsString>,
+    command: EnableDisableCommand,
+) -> Result<Command, String> {
+    let mut saw_json = false;
+    let mut roots = RootArgs::default();
+    let mut skill_name = None;
+    let mut agents = Vec::new();
+
+    while let Some(arg) = args.next() {
+        match arg.to_str() {
+            Some("--json") => saw_json = true,
+            Some("--skill") => {
+                skill_name = Some(next_string(&mut args, "--skill")?);
+            }
+            Some("--agent") => {
+                agents.push(parse_agent(&next_string(&mut args, "--agent")?)?);
+            }
+            Some("--canonical-root") => {
+                roots.canonical_root = Some(next_path(&mut args, "--canonical-root")?);
+            }
+            Some("--imports-root") => {
+                roots.imports_root = Some(next_path(&mut args, "--imports-root")?);
+            }
+            Some("--claude-code-root") => {
+                roots.claude_code_root = Some(next_path(&mut args, "--claude-code-root")?);
+            }
+            Some("--codex-root") => {
+                roots.codex_root = Some(next_path(&mut args, "--codex-root")?);
+            }
+            _ => {
+                return Err(format!(
+                    "unknown argument `{}`\n{}",
+                    display_arg(arg),
+                    usage()
+                ));
+            }
+        }
+    }
+
+    let command_name = match command {
+        EnableDisableCommand::Enable => "enable",
+        EnableDisableCommand::Disable => "disable",
+    };
+    if !saw_json {
+        return Err(format!("{command_name} currently requires --json"));
+    }
+    if agents.is_empty() {
+        return Err(format!("{command_name} requires at least one --agent"));
+    }
+
+    let roots = roots.into_discovery_roots()?;
+    let skill_name = skill_name.ok_or_else(|| format!("{command_name} requires --skill"))?;
+    match command {
+        EnableDisableCommand::Enable => Ok(Command::Enable {
+            roots,
+            skill_name,
+            agents,
+        }),
+        EnableDisableCommand::Disable => Ok(Command::Disable {
+            roots,
+            skill_name,
+            agents,
+        }),
+    }
+}
+
+fn parse_agent(value: &str) -> Result<SkillAgent, String> {
+    match value {
+        "claude-code" => Ok(SkillAgent::ClaudeCode),
+        "codex" => Ok(SkillAgent::Codex),
+        _ => Err(format!(
+            "unknown agent `{value}`; expected `claude-code` or `codex`"
+        )),
+    }
+}
+
+fn parse_promote_command(mut args: impl Iterator<Item = OsString>) -> Result<Command, String> {
+    let mut saw_json = false;
+    let mut roots = RootArgs::default();
+    let mut skill_name = None;
+
+    while let Some(arg) = args.next() {
+        match arg.to_str() {
+            Some("--json") => saw_json = true,
+            Some("--skill") => {
+                skill_name = Some(next_string(&mut args, "--skill")?);
+            }
+            Some("--canonical-root") => {
+                roots.canonical_root = Some(next_path(&mut args, "--canonical-root")?);
+            }
+            Some("--imports-root") => {
+                roots.imports_root = Some(next_path(&mut args, "--imports-root")?);
+            }
+            Some("--claude-code-root") => {
+                roots.claude_code_root = Some(next_path(&mut args, "--claude-code-root")?);
+            }
+            Some("--codex-root") => {
+                roots.codex_root = Some(next_path(&mut args, "--codex-root")?);
+            }
+            _ => {
+                return Err(format!(
+                    "unknown argument `{}`\n{}",
+                    display_arg(arg),
+                    usage()
+                ));
+            }
+        }
+    }
+
+    if !saw_json {
+        return Err("promote currently requires --json".to_string());
+    }
+
+    Ok(Command::Promote {
+        roots: roots.into_discovery_roots()?,
+        skill_name: skill_name.ok_or_else(|| "promote requires --skill".to_string())?,
+    })
+}
+
+fn parse_delete_command(mut args: impl Iterator<Item = OsString>) -> Result<Command, String> {
+    let mut saw_json = false;
+    let mut roots = RootArgs::default();
+    let mut skill_name = None;
+
+    while let Some(arg) = args.next() {
+        match arg.to_str() {
+            Some("--json") => saw_json = true,
+            Some("--skill") => {
+                skill_name = Some(next_string(&mut args, "--skill")?);
+            }
+            Some("--canonical-root") => {
+                roots.canonical_root = Some(next_path(&mut args, "--canonical-root")?);
+            }
+            Some("--imports-root") => {
+                roots.imports_root = Some(next_path(&mut args, "--imports-root")?);
+            }
+            Some("--claude-code-root") => {
+                roots.claude_code_root = Some(next_path(&mut args, "--claude-code-root")?);
+            }
+            Some("--codex-root") => {
+                roots.codex_root = Some(next_path(&mut args, "--codex-root")?);
+            }
+            _ => {
+                return Err(format!(
+                    "unknown argument `{}`\n{}",
+                    display_arg(arg),
+                    usage()
+                ));
+            }
+        }
+    }
+
+    if !saw_json {
+        return Err("delete currently requires --json".to_string());
+    }
+
+    Ok(Command::Delete {
+        roots: roots.into_discovery_roots()?,
+        skill_name: skill_name.ok_or_else(|| "delete requires --skill".to_string())?,
+    })
+}
+
+fn write_operation_json(
+    stdout: &mut impl Write,
+    result: &SkillOperationResult,
+) -> Result<(), String> {
+    serde_json::to_writer_pretty(&mut *stdout, result)
+        .map_err(|error| format!("failed to write JSON: {error}"))?;
+    writeln!(stdout).map_err(|error| format!("failed to write JSON: {error}"))?;
+    Ok(())
+}
+
 impl RootArgs {
     fn into_discovery_roots(self) -> Result<DiscoveryRoots, String> {
         let current_dir = env::current_dir()
@@ -411,7 +665,7 @@ fn read_limited_skill_markdown(reader: impl Read) -> Result<String, SkillUrlFetc
 }
 
 fn usage() -> String {
-    "usage: skill-importer list --json [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer import markdown --json [--source-location VALUE] [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer import path --json --path PATH [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer import url --json --url URL [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]".to_string()
+    "usage: skill-importer list --json [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer import markdown --json [--source-location VALUE] [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer import path --json --path PATH [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer import url --json --url URL [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer enable --json --skill NAME --agent claude-code|codex [--agent claude-code|codex] [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer disable --json --skill NAME --agent claude-code|codex [--agent claude-code|codex] [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer promote --json --skill NAME [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]\n       skill-importer delete --json --skill NAME [--canonical-root PATH] [--imports-root PATH] [--claude-code-root PATH] [--codex-root PATH]".to_string()
 }
 
 #[cfg(test)]
