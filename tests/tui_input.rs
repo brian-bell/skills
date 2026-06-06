@@ -59,11 +59,15 @@ fn escape_leaves_prompt_before_quit_and_prompt_text_maps_to_request() {
 
     assert_eq!(
         action_for_input(state.mode(), AppInput::Escape),
-        InputOutcome::Action(AppAction::CancelRepositorySelection)
+        InputOutcome::Action(AppAction::CancelPrompt)
     );
     assert_ne!(
         action_for_input(state.mode(), AppInput::Escape),
         InputOutcome::Quit
+    );
+    assert_eq!(
+        action_for_input(state.mode(), AppInput::Backspace),
+        InputOutcome::Action(AppAction::DeletePromptChar)
     );
 
     state.reduce(AppAction::PromptChanged(
@@ -75,6 +79,19 @@ fn escape_leaves_prompt_before_quit_and_prompt_text_maps_to_request() {
         Some(&AppOperationRequest::ImportUrl {
             url: "https://example.test/skill.md".to_string()
         })
+    );
+
+    let confirm_mode = AppInteractionMode::Confirm {
+        operation: skill_importer::tui::ConfirmationOperation::Promote,
+        skill_name: "alpha".to_string(),
+    };
+    assert_eq!(
+        action_for_input(&confirm_mode, AppInput::Escape),
+        InputOutcome::Action(AppAction::CancelPrompt)
+    );
+    assert_eq!(
+        action_for_input(&confirm_mode, AppInput::Backspace),
+        InputOutcome::Action(AppAction::DeletePromptChar)
     );
 }
 

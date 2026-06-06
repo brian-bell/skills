@@ -2,7 +2,10 @@ use ratatui::{Terminal, backend::TestBackend};
 use skill_importer::{
     AgentEnablement, AgentEntries, AgentEntryStatus, RepositorySkillCandidate, SkillAgent,
     SkillEntry, SkillInventory, SkillSource,
-    tui::{AppAction, AppOperationResult, AppState, SelectionDelta, render_app},
+    tui::{
+        AppAction, AppImportSource, AppOperationResult, AppState, ConfirmationOperation,
+        SelectionDelta, render_app,
+    },
 };
 
 #[test]
@@ -85,6 +88,62 @@ fn success_and_failure_status_states_are_visible_without_stale_text() {
     let text = render_text(&state, 80, 20);
     assert!(text.contains("failed: unsafe entry"));
     assert!(!text.contains("success: 3 actions"));
+}
+
+#[test]
+fn pending_request_status_uses_human_label_instead_of_debug_struct() {
+    let mut state = AppState::new(inventory(vec![skill(
+        "alpha",
+        "First",
+        SkillSource::Canonical,
+    )]));
+    state.reduce(AppAction::RequestEnableSelected);
+
+    let text = render_text(&state, 80, 20);
+
+    assert!(text.contains("Status: pending enable (alpha)"));
+    assert!(!text.contains("EnableSkill"));
+
+    let mut import_state = AppState::new(inventory(Vec::new()));
+    import_state.reduce(AppAction::BeginImportPrompt(AppImportSource::Url));
+    import_state.reduce(AppAction::PromptChanged(
+        "https://example.test/skill.md".to_string(),
+    ));
+    import_state.reduce(AppAction::SubmitPrompt);
+    let import_text = render_text(&import_state, 80, 20);
+    assert!(import_text.contains("Status: pending import url"));
+    assert!(!import_text.contains("ImportUrl"));
+
+    let mut delete_state = AppState::new(inventory(vec![skill(
+        "alpha",
+        "First",
+        SkillSource::Imported,
+    )]));
+    delete_state.reduce(AppAction::BeginConfirmation(ConfirmationOperation::Delete));
+    delete_state.reduce(AppAction::ConfirmPending);
+    let delete_text = render_text(&delete_state, 80, 20);
+    assert!(delete_text.contains("Status: pending delete (alpha)"));
+    assert!(!delete_text.contains("DeleteImport"));
+}
+
+#[test]
+fn pending_request_status_takes_precedence_over_previous_result() {
+    let mut state = AppState::new(inventory(vec![skill(
+        "alpha",
+        "First",
+        SkillSource::Canonical,
+    )]));
+    state.reduce(AppAction::OperationFinished(AppOperationResult::success(
+        "disable",
+        Some("alpha".to_string()),
+        1,
+    )));
+    state.reduce(AppAction::RequestEnableSelected);
+
+    let text = render_text(&state, 80, 20);
+
+    assert!(text.contains("Status: pending enable (alpha)"));
+    assert!(!text.contains("Status: disable (alpha) - success: 1 actions"));
 }
 
 #[test]

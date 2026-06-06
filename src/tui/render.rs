@@ -148,14 +148,18 @@ fn render_repository_selection(frame: &mut Frame<'_>, state: &AppState, area: Re
 }
 
 fn render_status(frame: &mut Frame<'_>, state: &AppState, area: Rect) {
-    let text = if let Some(status) = state.status_view() {
+    let text = if let Some(request) = state.pending_request() {
+        let skill = request
+            .skill_name()
+            .map(|name| format!(" ({name})"))
+            .unwrap_or_default();
+        format!("Status: pending {}{}", request.status_label(), skill)
+    } else if let Some(status) = state.status_view() {
         let skill = status
             .skill_name
             .map(|name| format!(" ({name})"))
             .unwrap_or_default();
         format!("Status: {}{} - {}", status.operation, skill, status.message)
-    } else if let Some(request) = state.pending_request() {
-        format!("Status: pending {request:?}")
     } else if matches!(state.mode(), AppInteractionMode::ImportPrompt { .. }) {
         format!("Status: prompt {}", state.prompt_text())
     } else {

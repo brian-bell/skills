@@ -309,6 +309,21 @@ fn enable_disable_and_import_intents_become_pending_requests() {
 }
 
 #[test]
+fn prompt_cancel_and_backspace_are_distinct_from_repository_selection() {
+    let mut state = AppState::new(inventory([]));
+    state.reduce(AppAction::BeginImportPrompt(AppImportSource::Url));
+    state.reduce(AppAction::PromptChanged("abc".to_string()));
+
+    state.reduce(AppAction::DeletePromptChar);
+    assert_eq!(state.prompt_text(), "ab");
+
+    state.reduce(AppAction::CancelPrompt);
+    assert!(matches!(state.mode(), AppInteractionMode::Main));
+    assert_eq!(state.prompt_text(), "");
+    assert_eq!(state.pending_request(), None);
+}
+
+#[test]
 fn promote_and_delete_require_confirmation_before_pending_request() {
     let mut state = AppState::new(inventory([skill("alpha", "First", SkillSource::Imported)]));
 

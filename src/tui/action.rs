@@ -14,6 +14,7 @@ pub enum AppAction {
     MoveRepositoryCandidate(SelectionDelta),
     ChooseRepositoryCandidate,
     CancelRepositorySelection,
+    CancelPrompt,
     CompletePendingOperation(Result<AppOperationResult, String>),
     CompleteOperation {
         request: Option<AppOperationRequest>,
@@ -22,6 +23,7 @@ pub enum AppAction {
     BeginImportPrompt(AppImportSource),
     BeginConfirmation(ConfirmationOperation),
     PromptChanged(String),
+    DeletePromptChar,
     SubmitPrompt,
     RequestEnableSelected,
     RequestDisableSelected,
@@ -78,6 +80,34 @@ pub enum AppOperationRequest {
         repository: String,
         selected_skill_path: Option<String>,
     },
+}
+
+impl AppOperationRequest {
+    pub fn status_label(&self) -> &'static str {
+        match self {
+            AppOperationRequest::EnableSkill { .. } => "enable",
+            AppOperationRequest::DisableSkill { .. } => "disable",
+            AppOperationRequest::PromoteSkill { .. } => "promote",
+            AppOperationRequest::DeleteImport { .. } => "delete",
+            AppOperationRequest::ImportMarkdown { .. } => "import markdown",
+            AppOperationRequest::ImportPath { .. } => "import path",
+            AppOperationRequest::ImportUrl { .. } => "import url",
+            AppOperationRequest::RepositoryImport { .. } => "repository import",
+        }
+    }
+
+    pub fn skill_name(&self) -> Option<&str> {
+        match self {
+            AppOperationRequest::EnableSkill { skill_name, .. }
+            | AppOperationRequest::DisableSkill { skill_name, .. }
+            | AppOperationRequest::PromoteSkill { skill_name }
+            | AppOperationRequest::DeleteImport { skill_name } => Some(skill_name.as_str()),
+            AppOperationRequest::ImportMarkdown { .. }
+            | AppOperationRequest::ImportPath { .. }
+            | AppOperationRequest::ImportUrl { .. }
+            | AppOperationRequest::RepositoryImport { .. } => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -144,11 +174,9 @@ pub fn action_for_input(
         },
         AppInteractionMode::ImportPrompt { .. } | AppInteractionMode::Confirm { .. } => match input
         {
-            AppInput::Escape => InputOutcome::Action(AppAction::CancelRepositorySelection),
+            AppInput::Escape => InputOutcome::Action(AppAction::CancelPrompt),
             AppInput::Enter => InputOutcome::Action(AppAction::SubmitPrompt),
-            AppInput::Backspace => {
-                InputOutcome::Action(AppAction::PromptChanged(String::from("\u{8}")))
-            }
+            AppInput::Backspace => InputOutcome::Action(AppAction::DeletePromptChar),
             AppInput::Char(character) => {
                 InputOutcome::Action(AppAction::PromptChanged(character.to_string()))
             }

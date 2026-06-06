@@ -5,7 +5,10 @@ use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{Terminal, backend::CrosstermBackend};
+use ratatui::{
+    Terminal,
+    backend::{Backend, CrosstermBackend},
+};
 
 use crate::{
     DeleteImportRequest, DisableSkillRequest, DiscoveryRoots, EnableSkillRequest,
@@ -36,8 +39,8 @@ fn run_tui_with_services(
 ) -> Result<(), io::Error> {
     let inventory = discover_skills(roots)?;
     let mut state = AppState::new(inventory);
-    let _cleanup = TerminalCleanup::enter()?;
-    let stdout = io::stdout();
+    let mut stdout = io::stdout();
+    let _cleanup = TerminalCleanup::enter(&mut stdout)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     let result = run_event_loop(
@@ -66,34 +69,56 @@ fn run_event_loop(
             };
             match action_for_input(state.mode(), input) {
                 InputOutcome::Action(action) => {
-                    state.reduce(action);
-                    if let Some(request) = state.take_pending_request() {
-                        match execute_operation_request(
-                            roots,
-                            url_fetcher,
-                            repository_provider,
-                            request.clone(),
-                        ) {
-                            Ok(TerminalOperationOutcome::Completed(result)) => {
-                                state.reduce(AppAction::CompleteOperation {
-                                    request: Some(request),
-                                    result: Ok(result),
-                                });
-                            }
-                            Ok(TerminalOperationOutcome::RepositorySelection(selection)) => {
-                                state.reduce(AppAction::RepositorySelectionLoaded(selection));
-                            }
-                            Err(reason) => {
-                                state.reduce(AppAction::CompleteOperation {
-                                    request: Some(request),
-                                    result: Err(reason),
-                                });
-                            }
-                        }
-                    }
+                    handle_action(terminal, state, action, |request| {
+                        execute_operation_request(roots, url_fetcher, repository_provider, request)
+                    })?;
                 }
                 InputOutcome::Quit => break,
                 InputOutcome::Ignored => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+fn handle_action<B: Backend>(
+    terminal: &mut Terminal<B>,
+    state: &mut AppState,
+    action: AppAction,
+    execute_request: impl FnOnce(AppOperationRequest) -> Result<TerminalOperationOutcome, String>,
+) -> Result<(), <B as Backend>::Error> {
+    handle_action_with_pending_observer(terminal, state, action, execute_request, || {})
+}
+
+fn handle_action_with_pending_observer<B: Backend>(
+    terminal: &mut Terminal<B>,
+    state: &mut AppState,
+    action: AppAction,
+    execute_request: impl FnOnce(AppOperationRequest) -> Result<TerminalOperationOutcome, String>,
+    mut after_pending_draw: impl FnMut(),
+) -> Result<(), <B as Backend>::Error> {
+    state.reduce(action);
+    if state.pending_request().is_some() {
+        terminal.draw(|frame| render_app(frame, state))?;
+        after_pending_draw();
+    }
+    if let Some(request) = state.take_pending_request() {
+        let request_context = request.clone();
+        match execute_request(request) {
+            Ok(TerminalOperationOutcome::Completed(result)) => {
+                state.reduce(AppAction::CompleteOperation {
+                    request: Some(request_context),
+                    result: Ok(result),
+                });
+            }
+            Ok(TerminalOperationOutcome::RepositorySelection(selection)) => {
+                state.reduce(AppAction::RepositorySelectionLoaded(selection));
+            }
+            Err(reason) => {
+                state.reduce(AppAction::CompleteOperation {
+                    request: Some(request_context),
+                    result: Err(reason),
+                });
             }
         }
     }
@@ -259,13 +284,12 @@ struct TerminalCleanup {
 }
 
 impl TerminalCleanup {
-    fn enter() -> Result<Self, io::Error> {
+    fn enter(stdout: &mut io::Stdout) -> Result<Self, io::Error> {
         enable_raw_mode()?;
         let mut cleanup = Self {
             raw_mode: true,
             alternate_screen: false,
         };
-        let mut stdout = io::stdout();
         execute!(stdout, EnterAlternateScreen)?;
         cleanup.alternate_screen = true;
         Ok(cleanup)
@@ -332,12 +356,17 @@ impl SkillRepositoryProvider for GitRepositoryProvider {
 #[cfg(test)]
 mod tests {
     use std::{
+        cell::Cell,
         fs,
         path::{Path, PathBuf},
+        rc::Rc,
     };
 
+    use ratatui::backend::TestBackend;
+
     use crate::{
-        SkillRepositoryCheckout, SkillRepositoryFetchError, SkillRepositoryProvider,
+        AgentEnablement, AgentEntries, AgentEntryStatus, SkillAgent, SkillEntry, SkillInventory,
+        SkillRepositoryCheckout, SkillRepositoryFetchError, SkillRepositoryProvider, SkillSource,
         SkillUrlFetchError, SkillUrlFetcher,
     };
 
@@ -412,6 +441,106 @@ mod tests {
         );
     }
 
+    #[test]
+    fn pending_frame_is_drawn_before_executing_operation_request() {
+        let mut state = AppState::new(SkillInventory {
+            skills: vec![skill("alpha", "First", SkillSource::Canonical)],
+        });
+        let backend = TestBackend::new(80, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+        let pending_drawn = Rc::new(Cell::new(false));
+        let request_executed = Rc::new(Cell::new(false));
+
+        handle_action_with_pending_observer(
+            &mut terminal,
+            &mut state,
+            AppAction::RequestEnableSelected,
+            {
+                let pending_drawn = Rc::clone(&pending_drawn);
+                let request_executed = Rc::clone(&request_executed);
+                move |request| {
+                    assert!(
+                        pending_drawn.get(),
+                        "pending frame should be drawn before execution starts"
+                    );
+                    request_executed.set(true);
+                    assert_eq!(
+                        request,
+                        AppOperationRequest::EnableSkill {
+                            skill_name: "alpha".to_string(),
+                            agent: SkillAgent::Codex,
+                        }
+                    );
+                    Ok(TerminalOperationOutcome::Completed(
+                        AppOperationResult::success("enable", Some("alpha".to_string()), 1),
+                    ))
+                }
+            },
+            {
+                let pending_drawn = Rc::clone(&pending_drawn);
+                move || pending_drawn.set(true)
+            },
+        )
+        .expect("handle action");
+
+        assert!(request_executed.get());
+        let rendered = terminal_text(&terminal);
+        assert!(rendered.contains("Status: pending enable (alpha)"));
+        assert!(state.status_view().expect("completion status").success);
+    }
+
+    #[test]
+    fn pending_frame_is_drawn_before_executing_url_import_request() {
+        let mut state = AppState::new(SkillInventory { skills: Vec::new() });
+        state.reduce(AppAction::BeginImportPrompt(
+            crate::tui::AppImportSource::Url,
+        ));
+        state.reduce(AppAction::PromptChanged(
+            "https://example.test/skill.md".to_string(),
+        ));
+        let backend = TestBackend::new(80, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+        let pending_drawn = Rc::new(Cell::new(false));
+        let request_executed = Rc::new(Cell::new(false));
+
+        handle_action_with_pending_observer(
+            &mut terminal,
+            &mut state,
+            AppAction::SubmitPrompt,
+            {
+                let pending_drawn = Rc::clone(&pending_drawn);
+                let request_executed = Rc::clone(&request_executed);
+                move |request| {
+                    assert!(
+                        pending_drawn.get(),
+                        "pending frame should be drawn before URL import starts"
+                    );
+                    request_executed.set(true);
+                    assert_eq!(
+                        request,
+                        AppOperationRequest::ImportUrl {
+                            url: "https://example.test/skill.md".to_string(),
+                        }
+                    );
+                    Err("network skipped".to_string())
+                }
+            },
+            {
+                let pending_drawn = Rc::clone(&pending_drawn);
+                move || pending_drawn.set(true)
+            },
+        )
+        .expect("handle action");
+
+        assert!(request_executed.get());
+        let rendered = terminal_text(&terminal);
+        assert!(rendered.contains("Status: pending import url"));
+        assert_eq!(
+            state.status_view().expect("failure status").message,
+            "failed: network skipped"
+        );
+    }
+
     struct UnusedFetcher;
 
     impl SkillUrlFetcher for UnusedFetcher {
@@ -472,5 +601,28 @@ description: {description}
             ),
         )
         .expect("skill file");
+    }
+
+    fn skill(name: &str, description: &str, source: SkillSource) -> SkillEntry {
+        SkillEntry {
+            name: name.to_string(),
+            description: Some(description.to_string()),
+            source,
+            enablement: AgentEnablement::Neither,
+            agent_entries: AgentEntries {
+                claude_code: AgentEntryStatus::Missing,
+                codex: AgentEntryStatus::Missing,
+            },
+        }
+    }
+
+    fn terminal_text(terminal: &Terminal<TestBackend>) -> String {
+        terminal
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>()
     }
 }

@@ -70,13 +70,17 @@ pub struct StatusView {
     pub success: bool,
 }
 
+const DEFAULT_ACTIVE_TARGET: SkillAgent = SkillAgent::Codex;
+
 impl AppState {
     pub fn new(inventory: SkillInventory) -> Self {
         let mut state = Self {
             inventory,
             visible_indices: Vec::new(),
             selected_visible: None,
-            active_target: SkillAgent::Codex,
+            // Codex is the default because this TUI is primarily launched from
+            // Codex skill workflows; the target remains explicit and switchable.
+            active_target: DEFAULT_ACTIVE_TARGET,
             filter: String::new(),
             latest_result: None,
             mode: AppInteractionMode::Main,
@@ -120,6 +124,11 @@ impl AppState {
                 self.pending_request = None;
                 self.prompt_text.clear();
             }
+            AppAction::CancelPrompt => {
+                self.mode = AppInteractionMode::Main;
+                self.pending_request = None;
+                self.prompt_text.clear();
+            }
             AppAction::CompletePendingOperation(result) => self.complete_pending(result),
             AppAction::CompleteOperation { request, result } => {
                 self.complete_operation(request, result)
@@ -138,6 +147,9 @@ impl AppState {
                 }
             }
             AppAction::PromptChanged(input) => self.apply_prompt_input(&input),
+            AppAction::DeletePromptChar => {
+                self.prompt_text.pop();
+            }
             AppAction::SubmitPrompt => self.submit_prompt(),
             AppAction::RequestEnableSelected => {
                 if let Some(skill) = self.selected_skill() {
@@ -399,11 +411,7 @@ impl AppState {
     }
 
     fn apply_prompt_input(&mut self, input: &str) {
-        if input == "\u{8}" {
-            self.prompt_text.pop();
-        } else {
-            self.prompt_text.push_str(input);
-        }
+        self.prompt_text.push_str(input);
     }
 
     fn submit_prompt(&mut self) {
