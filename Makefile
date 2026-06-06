@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 CARGO ?= cargo
 DEV_ROOT ?= $(CURDIR)/.skill-importer/dev
-CANONICAL_ROOT ?= $(CURDIR)
+CANONICAL_ROOT ?= $(CURDIR)/catalog/portable
 IMPORTS_ROOT ?= $(DEV_ROOT)/imports
 CLAUDE_CODE_ROOT ?= $(DEV_ROOT)/claude
 CODEX_ROOT ?= $(DEV_ROOT)/codex
@@ -12,7 +12,7 @@ ROOT_FLAGS := --canonical-root "$(CANONICAL_ROOT)" \
 	--claude-code-root "$(CLAUDE_CODE_ROOT)" \
 	--codex-root "$(CODEX_ROOT)"
 
-.PHONY: help build test fmt fmt-check clippy check run run-tui run-list dev-roots clean
+.PHONY: help build test fmt fmt-check clippy check install run run-tui run-list dev-roots clean
 
 help:
 	@printf '%s\n' \
@@ -23,6 +23,7 @@ help:
 		'  make fmt-check  Check Rust formatting' \
 		'  make clippy     Run clippy with warnings denied' \
 		'  make check      Run fmt-check, clippy, and test' \
+		'  make install    Install catalog skills into local agent roots' \
 		'  make run        Run the TUI with repo-local dev roots' \
 		'  make run-list   Print inventory JSON with repo-local dev roots' \
 		'  make clean      Remove build output and repo-local dev roots' \
@@ -45,6 +46,9 @@ clippy:
 	$(CARGO) clippy --all-targets -- -D warnings
 
 check: fmt-check clippy test
+
+install:
+	./install.sh
 
 dev-roots:
 	@mkdir -p "$(IMPORTS_ROOT)" "$(CLAUDE_CODE_ROOT)" "$(CODEX_ROOT)"

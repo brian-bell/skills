@@ -27,7 +27,7 @@ Parse the user's prompt:
 
 Build an understanding of the project before gathering feature-specific context:
 
-1. Read `CLAUDE.md` if it exists — this is the primary source of architecture context.
+1. Read `AGENTS.md` if it exists, falling back to `CLAUDE.md` — this is the primary source of architecture context.
 2. Read `README.md` if it exists — user-facing documentation.
 3. Scan for framework/language markers:
    - `go.mod` → Go project. Note module name and key dependencies.
@@ -62,7 +62,7 @@ Create a structured context block containing:
 - **Key files**: List of files to review (changed files for PR, module files for feature)
 - **Related files**: Files that import or interact with the feature
 - **Test files**: Corresponding test files
-- **Project patterns**: Key architectural patterns from CLAUDE.md/README.md that reviewers should check against
+- **Project patterns**: Key architectural patterns from AGENTS.md/CLAUDE.md/README.md that reviewers should check against
 - **Statistics**: For PR mode — additions/deletions/files changed. For feature mode — total files, total lines, test file count
 
 ### Step 5: Create team and tasks

@@ -1,7 +1,7 @@
 use std::env;
 use std::ffi::OsString;
 use std::io::{self, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::Duration;
 
@@ -650,12 +650,15 @@ impl RootArgs {
         let current_dir = env::current_dir()
             .map_err(|error| format!("failed to read current directory: {error}"))?;
         let home = home_dir();
+        let default_root = default_runtime_root(&current_dir);
 
         Ok(DiscoveryRoots {
-            canonical_root: self.canonical_root.unwrap_or_else(|| current_dir.clone()),
+            canonical_root: self
+                .canonical_root
+                .unwrap_or_else(|| default_canonical_root(&current_dir)),
             imports_root: self
                 .imports_root
-                .unwrap_or_else(|| current_dir.join(".skill-importer").join("imports")),
+                .unwrap_or_else(|| default_root.join(".skill-importer").join("imports")),
             claude_code_root: self
                 .claude_code_root
                 .unwrap_or_else(|| home.join(".claude").join("skills")),
@@ -664,6 +667,31 @@ impl RootArgs {
                 .unwrap_or_else(|| home.join(".agents").join("skills")),
         })
     }
+}
+
+fn default_runtime_root(current_dir: &Path) -> PathBuf {
+    find_catalog_repo_root(current_dir).unwrap_or_else(|| current_dir.to_path_buf())
+}
+
+fn default_canonical_root(current_dir: &Path) -> PathBuf {
+    find_catalog_repo_root(current_dir)
+        .map(|repo_root| repo_root.join("catalog").join("portable"))
+        .unwrap_or_else(|| current_dir.to_path_buf())
+}
+
+fn find_catalog_repo_root(current_dir: &Path) -> Option<PathBuf> {
+    current_dir
+        .ancestors()
+        .find(|ancestor| {
+            ancestor.join("AGENTS.md").is_file()
+                && ancestor.join("catalog").join("portable").is_dir()
+                && ancestor
+                    .join("tools")
+                    .join("skill-importer")
+                    .join("Cargo.toml")
+                    .is_file()
+        })
+        .map(Path::to_path_buf)
 }
 
 fn next_path(
@@ -886,6 +914,42 @@ description: Imported from a URL through the command.
             1,
             "bare command must not launch the TUI runner"
         );
+    }
+
+    #[test]
+    fn default_roots_use_repo_catalog_when_launched_from_nested_directory() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let repo_root = temp.path();
+        let catalog_root = repo_root.join("catalog").join("portable");
+        let nested = repo_root.join("tools").join("skill-importer");
+        std::fs::write(repo_root.join("AGENTS.md"), "# Test repo\n").expect("agents");
+        std::fs::create_dir_all(nested.as_path()).expect("nested dir");
+        std::fs::write(nested.join("Cargo.toml"), "[package]\nname = \"test\"\n")
+            .expect("crate manifest");
+        std::fs::create_dir_all(&catalog_root).expect("catalog root");
+
+        assert_eq!(default_canonical_root(&nested), catalog_root);
+        assert_eq!(default_runtime_root(&nested), repo_root);
+    }
+
+    #[test]
+    fn default_roots_ignore_unrelated_catalog_portable_directories() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let nested = temp.path().join("nested");
+        std::fs::create_dir_all(temp.path().join("catalog").join("portable"))
+            .expect("catalog root");
+        std::fs::create_dir_all(&nested).expect("nested dir");
+
+        assert_eq!(default_canonical_root(&nested), nested);
+        assert_eq!(default_runtime_root(&nested), nested);
+    }
+
+    #[test]
+    fn default_roots_fall_back_to_current_directory_outside_catalog_repo() {
+        let temp = tempfile::tempdir().expect("tempdir");
+
+        assert_eq!(default_canonical_root(temp.path()), temp.path());
+        assert_eq!(default_runtime_root(temp.path()), temp.path());
     }
 
     #[derive(Default)]

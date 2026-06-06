@@ -16,7 +16,7 @@ Work through open pull requests, fixing test failures and blocking code issues, 
 
 ### 1. Read Project Instructions
 
-Read `CLAUDE.md`, `AGENTS.md`, `README.md`, and relevant project docs to understand test commands and coding conventions. Pay special attention to build, test, lint, and formatting commands.
+Read `AGENTS.md`, `CLAUDE.md`, `README.md`, and relevant project docs to understand test commands and coding conventions. Pay special attention to build, test, lint, and formatting commands.
 
 ### 2. Discover Candidate PRs
 
