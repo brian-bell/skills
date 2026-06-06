@@ -10,9 +10,9 @@
 - [x] Phase 4: Local Path Import With Supporting Files
 - [x] Phase 5: URL Import Behind Injectable Fetching
 - [x] Phase 6: Repository Import With Skill Selection
-- [ ] Phase 7: Enable And Disable Per Agent
-- [ ] Phase 8: Promote Imported Skills Safely
-- [ ] Phase 9: Delete Unpromoted Imports
+- [x] Phase 7: Enable And Disable Per Agent
+- [x] Phase 8: Promote Imported Skills Safely
+- [x] Phase 9: Delete Unpromoted Imports
 - [ ] Phase 10: Keyboard-First TUI Over Core State
 
 ## Architectural decisions
