@@ -43,7 +43,7 @@ This skill must use the actual `$review-loop` workflow for critique loops. Do no
 4. Fetch and sync the base branch before planning merges:
    - `git fetch --prune`
    - fast-forward the local base branch when clean and allowed.
-5. Exclude PRs that are closed, already merged, drafts, target a different base branch, or have failed/pending required checks unless the user explicitly overrides.
+5. Exclude PRs that are closed, already merged, drafts, target a different base branch, or have failed/pending required checks from merge eligibility. A user override may include them in planning or review, but they must not be merged until required checks pass or repo policy confirms the checks are non-required.
 6. For a draft PR explicitly included by the user, confirm whether to skip it or mark it ready first; do not merge it while it is still draft.
 
 ## 2. Map Conflict Risk
