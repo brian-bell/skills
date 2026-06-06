@@ -145,6 +145,25 @@ fn delete_reports_unknown_canonical_agent_only_and_promoted_imports() {
 }
 
 #[test]
+fn delete_removes_import_when_same_name_canonical_skill_exists() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let roots = roots(temp.path());
+    import_markdown(&roots, "duplicate-helper");
+    let canonical = write_skill(&roots.canonical_root, "duplicate-helper");
+
+    delete_unpromoted_import(
+        &roots,
+        DeleteImportRequest {
+            skill_name: "duplicate-helper",
+        },
+    )
+    .expect("delete succeeds");
+
+    assert!(!roots.imports_root.join("duplicate-helper").exists());
+    assert!(canonical.join("SKILL.md").exists());
+}
+
+#[test]
 fn delete_ignores_unrelated_same_name_agent_entries_without_touching_them() {
     for case in [
         UnsafeEntry::Directory,

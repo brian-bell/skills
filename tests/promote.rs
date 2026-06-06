@@ -206,6 +206,36 @@ fn promotion_refuses_unsafe_agent_entries_without_mutating() {
 }
 
 #[test]
+fn promotion_reports_unsupported_skill_entries_without_agent_entry_language() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let roots = roots(temp.path());
+    import_markdown(&roots, "unsupported-entry-helper");
+    let import_dir = roots.imports_root.join("unsupported-entry-helper");
+    let unsupported_entry = import_dir.join("linked-skill.md");
+    unix_fs::symlink(import_dir.join("SKILL.md"), &unsupported_entry).expect("support symlink");
+    let expected_entry = fs::canonicalize(&import_dir)
+        .expect("canonical import dir")
+        .join("linked-skill.md");
+
+    let error = promote_imported_skill(
+        &roots,
+        PromoteSkillRequest {
+            skill_name: "unsupported-entry-helper",
+        },
+    )
+    .expect_err("unsupported source entry fails");
+
+    assert!(matches!(
+        error.error,
+        SkillOperationError::UnsupportedSkillEntry { ref path, .. } if *path == expected_entry
+    ));
+    assert!(
+        !error.error.to_string().contains("agent entry"),
+        "source skill entry errors should not mention agent entries"
+    );
+}
+
+#[test]
 fn promotion_reports_unknown_unsupported_and_already_promoted_sources() {
     let temp = tempfile::tempdir().expect("tempdir");
     let roots = roots(temp.path());

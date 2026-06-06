@@ -424,6 +424,50 @@ fn repository_with_no_valid_skills_returns_clear_error_without_partial_storage()
     );
 }
 
+#[test]
+fn repository_scan_skips_skills_beyond_depth_limit() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let roots = roots(temp.path());
+    let repository = temp.path().join("repo");
+    let mut deep_directory = repository.clone();
+    for depth in 0..10 {
+        deep_directory = deep_directory.join(format!("level-{depth}"));
+    }
+    write_skill_with_frontmatter_name(
+        &deep_directory,
+        "too-deep",
+        "This skill is beyond the repository scan depth.",
+    );
+    let provider = StaticRepositoryProvider {
+        repository_path: repository.clone(),
+    };
+
+    let error = import_repository_skill(
+        &roots,
+        ImportRepositoryRequest {
+            repository: "https://example.test/deep.git",
+            selected_skill_path: None,
+        },
+        &provider,
+    )
+    .expect_err("deep repository import fails");
+
+    match error {
+        ImportError::InvalidSource { path, message } => {
+            assert_eq!(path, repository);
+            assert!(
+                message.contains("no valid skills"),
+                "message should explain that no in-scope skills were found: {message}"
+            );
+        }
+        error => panic!("unexpected error: {error}"),
+    }
+    assert!(
+        !roots.imports_root.exists(),
+        "deep out-of-scope repository skill should not create storage"
+    );
+}
+
 struct StaticRepositoryProvider {
     repository_path: PathBuf,
 }
