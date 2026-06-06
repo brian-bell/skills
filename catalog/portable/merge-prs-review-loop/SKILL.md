@@ -24,7 +24,7 @@ This skill must use the actual `$review-loop` workflow for critique loops. Do no
 - Load and follow `$review-loop` defaults unless the user overrides them here.
 - Pass this skill's quality gate, minimum loops, and maximum loops into each `$review-loop` invocation.
 - Use `$review-loop` in review-existing mode for each PR before it is eligible to merge.
-- Use `$review-loop` again after the chosen merge path completes to review the combined result.
+- Use `$review-loop` again on the combined preflight result before any remote PR merge or before pushing/opening a local integration branch, then confirm the landed remote state afterward when using remote PR merges.
 - Give `$review-loop` only the bounded work product: PR metadata, diffs, relevant file excerpts, verification results, prior review findings, and task-specific criteria. Do not include private reasoning.
 - Keep merge control in the main agent. `$review-loop` may identify findings and proposed fixes, but this skill decides whether a PR branch, local integration branch, or remote PR merge path is safe.
 
@@ -97,7 +97,9 @@ Do not use subagents for merge conflict resolution unless the work can be split 
 Choose one merge path before starting, then keep it consistent unless a conflict or user override requires switching.
 
 - Remote PR-by-PR landing path:
-  - Review the PR, verify required checks, and use `gh pr merge <number> --merge`, `--squash`, or `--rebase` according to the repo's allowed/default method and the user's instruction.
+  - Before any remote merge, create the chosen ordered integration state in a temporary local branch or worktree and run the final integration `$review-loop` against that preflight state. Use `git merge-tree` simulation only for conflict-risk mapping, not for final review that depends on tests, generated files, or line-level inspection.
+  - Review the PR, verify required checks, re-check the head SHA, and use `gh pr merge <number> --match-head-commit <headRefOid> --merge`, `--squash`, or `--rebase` according to the repo's allowed/default method and the user's instruction only after the preflight integration review passes.
+  - If the base branch requires a merge queue, do not pass a merge strategy unless the CLI/repo requires one; let `gh pr merge` enqueue the PR, never use `--admin` to bypass the queue, and treat queued PRs as not yet landed until GitHub reports the merge complete.
   - After each remote merge, update the local base branch before reviewing or merging the next PR.
   - Do not use this path for a PR with blocking findings unless the fix is already on that PR branch.
 - Local integration branch path:
@@ -108,12 +110,17 @@ Choose one merge path before starting, then keep it consistent unless a conflict
 For each PR in the chosen path:
 
 1. Re-check PR state, mergeability, and checks immediately before merge:
+   - `gh pr view <number> --json state,isDraft,baseRefOid,headRefOid,mergeStateStatus,reviewDecision`
    - `gh pr checks <number> --required --json name,state,bucket,workflow,link`
+   - Confirm the current `baseRefOid` still matches the base commit used for the preflight integration review. If the base changed, rebuild the preflight state and rerun the final integration review before merging.
+   - Confirm the current `headRefOid` still matches the head commit that was reviewed and use `gh pr merge --match-head-commit <headRefOid>` for remote merges.
+   - Treat `CHANGES_REQUESTED` or `REVIEW_REQUIRED` as blockers when required reviews are part of repository policy or branch protection.
    - Treat any required check with `bucket` equal to `fail`, `pending`, `cancel`, or `skipping` as a blocker unless the repo explicitly treats it as non-required.
    - Report optional check failures separately and merge only when the repo's policy allows it.
    - If checks are still running, wait or watch when practical instead of merging early.
 2. Execute the selected merge path:
-   - For normal protected-branch landing, use `gh pr merge <number> --merge`, `--squash`, or `--rebase` according to the repo's allowed/default method and the user's instruction.
+   - For normal protected-branch landing, use `gh pr merge <number> --match-head-commit <headRefOid> --merge`, `--squash`, or `--rebase` according to the repo's allowed/default method and the user's instruction.
+   - For merge-queue repositories, let `gh pr merge` enqueue the PR according to GitHub's requirements, then wait for or report the queued state instead of claiming the PR landed immediately.
    - For local integration or conflict resolution, merge into a named integration branch. Prefer `git merge --no-ff <pr-head-commit>` when preserving PR boundaries helps later review; otherwise follow the repo's merge convention.
 3. If conflicts occur:
    - Inspect all conflict markers.
@@ -127,13 +134,13 @@ For each PR in the chosen path:
    - Full repo tests when merge risk is moderate or high.
    - Build when the repo has a documented build command.
 
-If a merge reveals an unexpected semantic issue, fix it in the merge/integration commit and document why.
+If a local integration merge reveals an unexpected semantic issue, fix it in the integration branch and document why. If a remote PR-by-PR preflight reveals an issue, stop before merging and require the fix to land on the relevant PR branch or switch to a local integration branch.
 
 ## 5. Final Integration Review
 
-After the selected merge path is complete, run one final `$review-loop` focused on combined behavior.
+Run at least one final `$review-loop` focused on combined behavior before any remote PR merge or before pushing/opening a local integration branch, and rerun it whenever the reviewed base or head changes. After a remote PR-by-PR path completes, sync the local base and confirm the landed state still matches the reviewed integration intent.
 
-- For the remote PR-by-PR path, sync the local base to the latest remote base and review the combined base state.
+- For the remote PR-by-PR path, review the local preflight integration state first, then sync the local base to the latest remote base after all merges and confirm the combined base state.
 - For the local integration branch path, review the integration branch before pushing or opening it.
 
 Review criteria should cover:
@@ -160,7 +167,8 @@ Before pushing or marking done:
 4. Confirm PR states and remote CI:
    - `gh pr view <number> --json number,state,mergedAt,mergeCommit`
    - `gh run list --branch <base> --limit 5`
-   - watch the relevant run when practical.
+   - For queued PRs, continue checking until GitHub reports a merge commit or report that the PR remains queued.
+   - Watch the relevant run when practical.
 5. Close or clean up any reviewer subagents/threads.
 
 ## Report
@@ -180,5 +188,5 @@ Summarize:
 - Never force-push unless the user explicitly requested it.
 - Never revert unrelated user work.
 - Never merge draft PRs by default; if the user explicitly includes one, confirm whether to skip it or mark it ready first.
-- Never bypass branch protection, admin-merge, or required-review gates without explicit user authorization for that specific PR.
+- Never bypass branch protection, admin-merge, merge queue, or required-review gates.
 - Prefer exact command output summaries over vague "looks good" claims.
