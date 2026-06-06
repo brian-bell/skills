@@ -24,7 +24,7 @@ For PR mode, use Bash to run `gh pr view <number>` and `gh pr diff <number>` for
 ## Checklist
 
 ### 1. Product Alignment
-- Does this feature serve the product's core purpose? Refer to the project description in CLAUDE.md or README.md.
+- Does this feature serve the product's core purpose? Refer to the project description in AGENTS.md, CLAUDE.md, or README.md.
 - Is it something the target user would actually want?
 - Is it consistent with the product's existing design philosophy and interaction patterns?
 - Does it duplicate functionality that already exists in the product?

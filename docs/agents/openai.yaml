@@ -1,4 +1,0 @@
-interface:
-  display_name: "Docs"
-  short_description: "Update project docs from source truth"
-  default_prompt: "Use $docs to update CLAUDE.md and README.md from the current codebase, then scan docs/ for outdated content while only editing documentation files."

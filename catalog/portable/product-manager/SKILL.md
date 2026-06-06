@@ -31,7 +31,7 @@ No exceptions. If you catch yourself about to run a write operation, stop.
 
 Before you can reason about the product, you must deeply understand what exists. Explore the codebase like a new PM joining the team on day one.
 
-1. Read the README, CLAUDE.md, and any docs/ directory
+1. Read the README, AGENTS.md, CLAUDE.md, and any docs/ directory
 2. Read package.json, go.mod, Cargo.toml, pyproject.toml, or equivalent -- understand the dependency stack and what it signals about the project's ambitions
 3. Explore the directory structure to understand the architecture
 4. Read key entry points (main files, route definitions, CLI commands, API handlers)

@@ -1,38 +1,35 @@
 # skills
 
-Central repo for personal AI skills.
+Central repo for personal AI skills and the `skill-importer` tooling used to inspect and manage them.
 
-Portable skills live as top-level directories and are symlinked into both:
+The repo root is a small launchpad. `AGENTS.md` is the source of truth for agent context, and `CLAUDE.md` is a symlink to it for Claude compatibility. The actual material is split by purpose:
 
-- `~/.agents/skills/<skill>`
-- `~/.claude/skills/<skill>`
-
-Claude-native team skills live under `claude-native/`.
-
-The repo also contains the in-progress Rust `skill-importer` crate. It provides merged discovery, JSON automation commands, import and enablement operations, and a keyboard-first terminal UI.
+- `catalog/portable/` contains portable skills that can be symlinked into both Codex/agents and Claude Code.
+- `catalog/claude-native/` contains Claude-only team skills and reviewer agents.
+- `tools/skill-importer/` contains the Rust crate for JSON automation commands and the keyboard-first TUI.
+- `scripts/` contains repository maintenance scripts.
+- `plans/` contains implementation plans.
 
 ## Portable Skills
 
-- `commit` — Create clean local-only git commits without pushing.
-- `chrome-reading-list` — Export Chrome Reading List data to CSV/JSON.
-- `docs` — Update `CLAUDE.md`, `README.md`, and `docs/` from source truth.
-- `grill-me` — Stress-test a plan or design through one-question-at-a-time interview.
-- `improve-codebase-architecture` — Find module-deepening opportunities.
-- `prd-to-issues` — Break a PRD into vertical-slice GitHub issues.
-- `prd-to-plan` — Turn a PRD into a phased tracer-bullet implementation plan.
-- `product-manager` — Product and market analysis workflow.
-- `review-loop` — Iterative worker/reviewer quality loop.
-- `ship` — Commit, push, and open/reuse a PR.
-- `skill-parity-audit` — Compare skill roots for missing, drifted, and broken skills.
-- `tdd` — Test-driven development with red/green/refactor loops.
-- `work-prs` — Process open non-draft PRs with complete checks, fix failures/blockers, and push targeted fixes.
-- `write-a-prd` — Interview, design, and draft a PRD as a GitHub issue.
-
-`rebase` is intentionally not a skill. The old `commands/` layer is retired.
+- `commit` - Create clean local-only git commits without pushing.
+- `chrome-reading-list` - Export Chrome Reading List data to CSV/JSON.
+- `docs` - Update `AGENTS.md`, keep `CLAUDE.md` symlinked to it, and refresh `README.md`/`docs/` from source truth.
+- `grill-me` - Stress-test a plan or design through one-question-at-a-time interview.
+- `improve-codebase-architecture` - Find module-deepening opportunities.
+- `prd-to-issues` - Break a PRD into vertical-slice GitHub issues.
+- `prd-to-plan` - Turn a PRD into a phased tracer-bullet implementation plan.
+- `product-manager` - Product and market analysis workflow.
+- `review-loop` - Iterative worker/reviewer quality loop.
+- `ship` - Commit, push, and open/reuse a PR.
+- `skill-parity-audit` - Compare skill roots for missing, drifted, and broken skills.
+- `tdd` - Test-driven development with red/green/refactor loops.
+- `work-prs` - Process open non-draft PRs with complete checks, fix failures/blockers, and push targeted fixes.
+- `write-a-prd` - Interview, design, and draft a PRD as a GitHub issue.
 
 ## Skill Importer
 
-`skill-importer` is a Rust crate for inspecting and managing skill roots across canonical local skills, imported skills, Claude Code skills, and Codex skills.
+`skill-importer` is a Rust crate in `tools/skill-importer/` for inspecting and managing skill roots across canonical local skills, imported skills, Claude Code skills, and Codex skills.
 
 Current behavior:
 
@@ -47,7 +44,7 @@ Current behavior:
 - Promotes imported skills into canonical storage and deletes unpromoted imports.
 - Provides an additive `skill-importer tui` entrypoint over the same core operations.
 
-Development commands:
+Development commands run from the repo root through the Cargo workspace:
 
 ```bash
 cargo fmt --check
@@ -81,7 +78,7 @@ All commands accept root overrides:
 --codex-root PATH
 ```
 
-Use root overrides for tests and manual experiments when you do not want to touch real skill directories.
+When launched inside this repo, default canonical discovery uses `catalog/portable/`. Outside this repo, the fallback canonical root remains the current directory. Use root overrides for tests and manual experiments when you do not want to touch real skill directories.
 
 ### Running the TUI
 
@@ -116,8 +113,8 @@ Repository imports that find more than one valid skill enter an interactive cand
 
 ## Claude-Native Skills
 
-- `claude-native/go-review-team/` — Claude `/go-review` skill plus Go reviewer agents.
-- `claude-native/feature-review-team/` — Claude `/feature-review` skill plus acceptance reviewer agents.
+- `catalog/claude-native/go-review-team/` - Claude `/go-review` skill plus Go reviewer agents.
+- `catalog/claude-native/feature-review-team/` - Claude `/feature-review` skill plus acceptance reviewer agents.
 
 ## Installation
 
@@ -127,38 +124,37 @@ Run:
 ~/dev/skills/install.sh
 ```
 
-The installer:
+The root `install.sh` delegates to `scripts/install-skills.sh`. The installer:
 
-- Symlinks portable top-level skills into `~/.agents/skills`.
-- Symlinks portable top-level skills into `~/.claude/skills`.
+- Symlinks portable catalog skills into `~/.agents/skills`.
+- Symlinks portable catalog skills into `~/.claude/skills`.
 - Symlinks Claude-native team directories into Claude.
-- Removes stale `~/.claude/commands`.
-- Removes stale installed `rebase` skills.
 
 ## Directory Structure
 
 ```text
 skills/
-├── commit/
-├── chrome-reading-list/
-├── docs/
-├── grill-me/
-├── improve-codebase-architecture/
-├── prd-to-issues/
-├── prd-to-plan/
-├── product-manager/              # portable/Codex-compatible
-├── review-loop/
-├── ship/
-├── skill-parity-audit/
-├── tdd/
-├── work-prs/
-├── write-a-prd/
-├── src/                          # skill-importer Rust library
-├── tests/                        # skill-importer integration tests
-├── plans/
-├── claude-native/
-│   ├── go-review-team/
-│   └── feature-review-team/
-├── Cargo.toml
-└── install.sh
+├── README.md
+├── AGENTS.md
+├── CLAUDE.md                     # symlink to AGENTS.md
+├── Cargo.toml                    # workspace manifest
+├── Cargo.lock
+├── Makefile
+├── install.sh                    # compatibility wrapper
+├── catalog/
+│   ├── portable/
+│   │   ├── commit/
+│   │   ├── chrome-reading-list/
+│   │   └── ...
+│   └── claude-native/
+│       ├── go-review-team/
+│       └── feature-review-team/
+├── tools/
+│   └── skill-importer/
+│       ├── Cargo.toml
+│       ├── src/
+│       └── tests/
+├── scripts/
+│   └── install-skills.sh
+└── plans/
 ```

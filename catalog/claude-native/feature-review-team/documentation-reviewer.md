@@ -19,7 +19,7 @@ The team lead provides you with a review mode (PR or Feature), context summary, 
 ## Checklist
 
 ### 1. Project Documentation Updates
-Check the primary project documentation files (typically `CLAUDE.md` and `README.md`). Do they accurately reflect the feature?
+Check the primary project documentation files (typically `AGENTS.md`, falling back to `CLAUDE.md`, plus `README.md`). Do they accurately reflect the feature?
 
 - **Architecture docs**: If the feature adds new modules, packages, or changes the data flow, is it reflected?
 - **Module/package descriptions**: If new modules are added or existing ones change responsibility, are they listed?
@@ -43,7 +43,7 @@ In feature mode: read the full documentation and compare against the actual code
 
 ### 4. Discoverability
 - Could a new developer find this feature by reading the project's documentation?
-- Starting from CLAUDE.md or README.md, can you trace a path to understanding this feature?
+- Starting from AGENTS.md, falling back to CLAUDE.md, or from README.md, can you trace a path to understanding this feature?
 - Are build/run/test commands updated if the feature introduces new ones?
 - Is the feature mentioned in any relevant index, table of contents, or command help text?
 

@@ -22,7 +22,7 @@ Durable decisions that apply across all phases:
 - **Product surface**: Build a Rust terminal UI named `skill-importer`. The TUI is the primary user experience from the first release.
 - **Automation surface**: Provide non-interactive commands for listing, importing, enabling, disabling, promoting, and deleting imports so behavior can be tested and scripted without driving terminal rendering.
 - **Core boundary**: Keep discovery, import parsing, storage, symlink management, promotion, deletion, and app state outside the rendering layer. The TUI consumes state and dispatches actions.
-- **Managed roots**: Treat canonical local skills, imported skills, Claude Code skills, and Codex skills as configurable roots. Defaults should match the current repo convention: canonical portable skills in the local skills repository, Claude Code skills in `~/.claude/skills`, and Codex skills in `~/.agents/skills`.
+- **Managed roots**: Treat canonical local skills, imported skills, Claude Code skills, and Codex skills as configurable roots. Defaults should match the current repo convention: canonical portable skills in `catalog/portable/`, Claude Code skills in `~/.claude/skills`, and Codex skills in `~/.agents/skills`.
 - **Skill inventory model**: Discovery produces one merged inventory of skills, including canonical skills, imported skills, Claude Code entries, Codex entries, external symlinks, real directories, missing roots, and broken symlinks.
 - **Skill validation**: Imported portable skills require minimal frontmatter with `name` and `description`.
 - **Import storage**: Store unpromoted imports in a dedicated imports area. Each import has manifest metadata for source type, source location, import time, content hash, and promotion status.
