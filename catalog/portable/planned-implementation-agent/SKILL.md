@@ -1,19 +1,21 @@
 ---
 name: planned-implementation-agent
-description: Plan and execute implementation tasks through a reviewed plan, TDD, review-loop quality gates, and a worker subagent. Use when the user asks to implement a task by first writing a detailed implementation plan, wants the plan itself reviewed or iterated, or wants a subagent dispatched to carry out an approved implementation plan.
+description: Plan and execute implementation tasks through a reviewed plan that explicitly incorporates the $tdd and $review-loop skills, quality gates, and a worker subagent. Use when the user asks to implement a task by first writing a detailed implementation plan, wants the plan itself reviewed or iterated, or wants a subagent dispatched to carry out an approved implementation plan.
 ---
 
 # Planned Implementation Agent
 
-Use this workflow to turn a task into a reviewed implementation plan, then delegate execution to a worker subagent. The main agent owns planning quality, subagent scope, verification, and the final report.
+Use this workflow to turn a task into a reviewed implementation plan, then delegate execution to a worker subagent. The plan must explicitly compose the `$tdd` skill for red/green/refactor execution and the `$review-loop` skill for plan and implementation critique loops. The main agent owns planning quality, subagent scope, verification, and the final report.
 
 ## Defaults
 
-- Plan review loops: minimum `1`
-- Implementation review loops: minimum `2`
+- Plan review loops: minimum `1`, using the `$review-loop` skill.
+- Implementation review loops: minimum `2`, using the `$review-loop` skill.
 - Quality gate: `8/10`
-- TDD expectation: write or update failing tests before behavior changes whenever the codebase supports tests.
+- TDD expectation: follow the `$tdd` skill by writing or updating failing tests before behavior changes whenever the codebase supports tests.
 - Handoff style: bounded worker subagent with a concrete plan, acceptance criteria, and verification commands.
+
+The plan review minimum intentionally overrides `$review-loop`'s default minimum of `2` loops for plan review only; implementation review keeps the stricter minimum of `2`.
 
 Honor user overrides for quality gate, test strategy, delegation boundaries, or whether the main agent should execute instead of a subagent.
 While this workflow is active, loop-count overrides may make the process stricter, but must not reduce plan review below `1` loop or implementation review below `2` loops unless the user explicitly cancels or opts out of this skill's workflow.
@@ -40,8 +42,8 @@ The plan must include:
 - Goal and non-goals.
 - Current system observations with file references.
 - Proposed implementation steps in dependency order.
-- A TDD section with the first failing tests or test updates to write, expected red state, implementation path, and refactor pass.
-- A review-loop section requiring at least `2` implementation critique/revision loops, review criteria, quality gate, and how findings will be addressed.
+- A `$tdd` section with the first failing tests or test updates to write, expected red state, implementation path, and refactor pass.
+- A `$review-loop` section requiring at least `2` implementation critique/revision loops, review criteria, quality gate, and how findings will be addressed.
 - Verification commands and expected evidence.
 - Subagent handoff package: exact scope, constraints, files to inspect, plan steps to execute, acceptance criteria, and reporting format.
 - Risks and explicit stop conditions.
@@ -69,8 +71,8 @@ Use the available multi-agent/subagent tooling. If subagent tools are not visibl
 Give the worker:
 
 - The reviewed implementation plan.
-- The TDD requirement: create or update tests first, observe the expected failure, then implement.
-- The implementation review-loop requirement: run at least `2` critique/revision loops and meet the quality gate, default `8/10`, unless the user sets a stricter gate.
+- The `$tdd` requirement: create or update tests first, observe the expected failure, then implement and refactor.
+- The `$review-loop` implementation requirement: run at least `2` critique/revision loops and meet the quality gate, default `8/10`, unless the user sets a stricter gate.
 - The exact verification commands to run.
 - Guardrails to avoid reverting unrelated work or widening scope.
 - Boundaries: allowed files or modules, forbidden scope expansion, credential-dependent commands to avoid, and production/user configuration that must not be touched.
