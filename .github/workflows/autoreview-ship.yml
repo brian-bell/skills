@@ -1,0 +1,268 @@
+name: Autoreview Ship
+
+on:
+  workflow_call:
+    inputs:
+      pr_number:
+        description: Pull request number. Defaults to the most recently updated open PR on manual runs.
+        required: false
+        type: string
+        default: ""
+      instructions:
+        description: Optional instructions for the ship workflow.
+        required: false
+        type: string
+        default: ""
+      skills_repository:
+        description: Repository containing the shared skills checkout.
+        required: false
+        type: string
+        default: brian-bell/skills
+      skills_ref:
+        description: Ref to checkout from skills_repository.
+        required: false
+        type: string
+        default: main
+      autoreview_model:
+        description: Optional Codex model for autoreview.
+        required: false
+        type: string
+        default: ""
+      autoreview_thinking:
+        description: Optional Codex reasoning effort for autoreview.
+        required: false
+        type: string
+        default: ""
+      autoreview_parallel_tests:
+        description: Optional test command Codex should run as part of the autoreview gate.
+        required: false
+        type: string
+        default: ""
+      codex_version:
+        description: Optional @openai/codex version for openai/codex-action.
+        required: false
+        type: string
+        default: ""
+      post_feedback:
+        description: Post the autoreview or Codex result back to the pull request.
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      OPENAI_API_KEY:
+        required: true
+      SKILLS_REPOSITORY_TOKEN:
+        required: false
+    outputs:
+      final_message:
+        description: The message produced by Codex or by the autoreview gate.
+        value: ${{ jobs.ship.outputs.final_message }}
+      pr_number:
+        description: The resolved pull request number.
+        value: ${{ jobs.resolve.outputs.pr_number }}
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    outputs:
+      pr_number: ${{ steps.pr.outputs.number }}
+      base_ref: ${{ steps.pr.outputs.base_ref }}
+      base_sha: ${{ steps.pr.outputs.base_sha }}
+      head_ref: ${{ steps.pr.outputs.head_ref }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+      head_repo: ${{ steps.pr.outputs.head_repo }}
+      title: ${{ steps.pr.outputs.title }}
+      body: ${{ steps.pr.outputs.body }}
+      instructions: ${{ steps.pr.outputs.instructions }}
+    steps:
+      - name: Resolve pull request context
+        id: pr
+        uses: actions/github-script@v7
+        env:
+          MANUAL_PR_NUMBER: ${{ inputs.pr_number }}
+          MANUAL_INSTRUCTIONS: ${{ inputs.instructions }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const { owner, repo } = context.repo;
+            let pull;
+            let instructions = process.env.MANUAL_INSTRUCTIONS || 'Manual Codex workflow run.';
+
+            if (context.eventName === 'issue_comment') {
+              const issue = context.payload.issue;
+              if (!issue.pull_request) {
+                core.setFailed('Codex can only run from pull request comments.');
+                return;
+              }
+              const response = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: issue.number,
+              });
+              pull = response.data;
+              instructions = context.payload.comment.body;
+            } else if (context.eventName === 'pull_request_review_comment') {
+              pull = context.payload.pull_request;
+              instructions = context.payload.comment.body;
+            } else if (context.eventName === 'pull_request_review') {
+              pull = context.payload.pull_request;
+              instructions = context.payload.review.body || '';
+            } else {
+              const manualPr = process.env.MANUAL_PR_NUMBER || '';
+              if (manualPr) {
+                const response = await github.rest.pulls.get({
+                  owner,
+                  repo,
+                  pull_number: Number(manualPr),
+                });
+                pull = response.data;
+              } else {
+                const pulls = await github.rest.pulls.list({
+                  owner,
+                  repo,
+                  state: 'open',
+                  per_page: 1,
+                  sort: 'updated',
+                  direction: 'desc',
+                });
+                if (pulls.data.length === 0) {
+                  core.setFailed('No open pull requests found for manual Codex run.');
+                  return;
+                }
+                pull = pulls.data[0];
+              }
+            }
+
+            core.setOutput('number', String(pull.number));
+            core.setOutput('base_ref', pull.base.ref);
+            core.setOutput('base_sha', pull.base.sha);
+            core.setOutput('head_ref', pull.head.ref);
+            core.setOutput('head_sha', pull.head.sha);
+            core.setOutput('head_repo', pull.head.repo.full_name);
+            core.setOutput('title', pull.title || '');
+            core.setOutput('body', pull.body || '');
+            core.setOutput('instructions', instructions);
+
+  ship:
+    needs: resolve
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: read
+    outputs:
+      final_message: ${{ steps.run_codex.outputs['final-message'] }}
+    steps:
+      - name: Checkout pull request branch
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.resolve.outputs.head_repo }}
+          ref: ${{ needs.resolve.outputs.head_ref }}
+          fetch-depth: 0
+
+      - name: Checkout shared skills
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.skills_repository }}
+          ref: ${{ inputs.skills_ref }}
+          path: .skills
+          persist-credentials: false
+          token: ${{ secrets.SKILLS_REPOSITORY_TOKEN || github.token }}
+
+      - name: Hide shared skills checkout from reviewed repository
+        run: echo ".skills/" >> .git/info/exclude
+
+      - name: Bundle skills into Codex home
+        env:
+          CODEX_HOME: ${{ runner.temp }}/codex-home
+        run: |
+          set -euo pipefail
+          mkdir -p "$CODEX_HOME/skills"
+          cp -a .skills/catalog/portable/autoreview "$CODEX_HOME/skills/autoreview"
+          cp -a .skills/catalog/portable/commit "$CODEX_HOME/skills/commit"
+          cp -a .skills/catalog/portable/ship "$CODEX_HOME/skills/ship"
+          {
+            echo "CODEX_HOME=$CODEX_HOME"
+            echo "Bundled Codex skills:"
+            find "$CODEX_HOME/skills" -maxdepth 1 -mindepth 1 -type d -print | sort
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Pre-fetch base ref for autoreview
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_BASE_REF: ${{ needs.resolve.outputs.base_ref }}
+        run: |
+          git -c http.extraheader="AUTHORIZATION: bearer $GITHUB_TOKEN" \
+            fetch --no-tags "https://github.com/${{ github.repository }}.git" \
+            "+refs/heads/$PR_BASE_REF:refs/remotes/origin/$PR_BASE_REF"
+
+      - name: Run Codex autoreview and ship workflow
+        id: run_codex
+        uses: openai/codex-action@v1
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AUTOREVIEW_PARALLEL_TESTS: ${{ inputs.autoreview_parallel_tests }}
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          codex-home: ${{ runner.temp }}/codex-home
+          codex-version: ${{ inputs.codex_version }}
+          model: ${{ inputs.autoreview_model }}
+          effort: ${{ inputs.autoreview_thinking }}
+          sandbox: workspace-write
+          prompt: |
+            You were invoked from GitHub Actions to run an autoreview-gated ship workflow.
+
+            Bundled Codex skills are installed in Codex home:
+            - $autoreview
+            - $commit
+            - $ship
+
+            Follow the repository skill workflows exactly:
+            1. Use $autoreview first against the pull request branch diff with base origin/${{ needs.resolve.outputs.base_ref }}.
+            2. If the AUTOREVIEW_PARALLEL_TESTS environment variable is non-empty, run that command as the autoreview skill's focused test evidence.
+            3. If autoreview reports accepted/actionable findings, stop immediately. Do not use $ship, do not push, and report the findings.
+            4. If autoreview exits cleanly, use $ship to commit, push, and create or update the PR as appropriate.
+            5. If $ship leads you to make any code changes before pushing, rerun $autoreview against origin/${{ needs.resolve.outputs.base_ref }} and stop instead of pushing if it reports accepted/actionable findings.
+            6. Treat .skills/ as workflow support only; do not stage, commit, edit, or report it as repository work.
+
+            Repository: ${{ github.repository }}
+            Pull request: #${{ needs.resolve.outputs.pr_number }}
+            Title: ${{ needs.resolve.outputs.title }}
+
+            Pull request body:
+            ----
+            ${{ needs.resolve.outputs.body }}
+
+            Comment or manual instructions:
+            ----
+            ${{ needs.resolve.outputs.instructions }}
+
+  post_feedback:
+    runs-on: ubuntu-latest
+    needs:
+      - resolve
+      - ship
+    if: always() && inputs.post_feedback && needs.resolve.outputs.pr_number != '' && needs.ship.outputs.final_message != ''
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Report Codex response
+        uses: actions/github-script@v7
+        env:
+          FINAL_MESSAGE: ${{ needs.ship.outputs.final_message }}
+          PR_NUMBER: ${{ needs.resolve.outputs.pr_number }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number(process.env.PR_NUMBER),
+              body: process.env.FINAL_MESSAGE,
+            });
