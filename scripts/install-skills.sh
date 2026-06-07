@@ -9,6 +9,7 @@ CLAUDE_DIR="$HOME/.claude"
 AGENTS_DIR="$HOME/.agents"
 
 portable_skills=(
+  autoreview
   chrome-reading-list
   commit
   docs
