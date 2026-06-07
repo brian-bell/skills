@@ -9,6 +9,7 @@ CLAUDE_DIR="$HOME/.claude"
 AGENTS_DIR="$HOME/.agents"
 
 portable_skills=(
+  autoreview
   chrome-reading-list
   commit
   docs
@@ -23,6 +24,7 @@ portable_skills=(
   ship
   skill-parity-audit
   tdd
+  tdd-with-review
   work-prs
   write-a-prd
 )

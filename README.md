@@ -12,6 +12,7 @@ The repo root is a small launchpad. `AGENTS.md` is the source of truth for agent
 
 ## Portable Skills
 
+- `autoreview` - Run structured code review as a closeout check on local or PR branches.
 - `commit` - Create clean local-only git commits without pushing.
 - `chrome-reading-list` - Export Chrome Reading List data to CSV/JSON.
 - `docs` - Update `AGENTS.md`, keep `CLAUDE.md` symlinked to it, and refresh `README.md`/`docs/` from source truth.
@@ -26,6 +27,7 @@ The repo root is a small launchpad. `AGENTS.md` is the source of truth for agent
 - `ship` - Commit, push, and open/reuse a PR.
 - `skill-parity-audit` - Compare skill roots for missing, drifted, and broken skills.
 - `tdd` - Test-driven development with red/green/refactor loops.
+- `tdd-with-review` - Implement with TDD, run review-loop, then ship.
 - `work-prs` - Process open non-draft PRs with complete checks, fix failures/blockers, and push targeted fixes.
 - `write-a-prd` - Interview, design, and draft a PRD as a GitHub issue.
 

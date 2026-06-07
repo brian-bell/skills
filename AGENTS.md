@@ -17,6 +17,7 @@ This repository is the central source for personal AI skills and the `skill-impo
 
 Portable skills currently include:
 
+- `autoreview`
 - `commit`
 - `chrome-reading-list`
 - `docs`
@@ -31,6 +32,7 @@ Portable skills currently include:
 - `ship`
 - `skill-parity-audit`
 - `tdd`
+- `tdd-with-review`
 - `work-prs`
 - `write-a-prd`
 

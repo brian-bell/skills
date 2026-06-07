@@ -3,3 +3,5 @@ TODO.md
 .DS_Store
 target/
 .skill-importer/
+__pycache__/
+*.py[cod]
