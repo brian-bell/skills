@@ -58,6 +58,8 @@ Iterative worker-reviewer cycle within a single session. You do the work, spawn 
 | Worker model | (your current model) |
 | Reviewer model | (your current model or fast/balanced alternative) |
 
+Reviewers should ALWAYS run in subagents.
+
 ---
 
 ## Model Selection
