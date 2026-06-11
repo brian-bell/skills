@@ -93,7 +93,6 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
-      actions: read
     secrets: inherit
 ```
 

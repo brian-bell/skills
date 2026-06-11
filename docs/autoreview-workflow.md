@@ -26,7 +26,9 @@ comment when it is done.
   `SKILLS_REPOSITORY_TOKEN` secret that can read it. Public consumers do not
   need this extra token.
 - Call the workflow from trusted events only. The recommended trigger is a PR
-  comment or review from `OWNER`, `MEMBER`, or `COLLABORATOR`.
+  comment or review from `OWNER` or `COLLABORATOR` users with write access. If
+  you want to allow organization `MEMBER` users without direct write access,
+  configure the Codex action authorization policy explicitly.
 - Give the caller job write permissions so Codex can push commits and comment on
   the PR.
 
@@ -70,16 +72,15 @@ on:
 jobs:
   autoreview:
     if: |
-      (github.event_name == 'issue_comment' && github.event.issue.pull_request && (contains(github.event.comment.body, '@codex') || contains(github.event.comment.body, '@autoreview')) && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
-      (github.event_name == 'pull_request_review_comment' && (contains(github.event.comment.body, '@codex') || contains(github.event.comment.body, '@autoreview')) && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
-      (github.event_name == 'pull_request_review' && (contains(github.event.review.body, '@codex') || contains(github.event.review.body, '@autoreview')) && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association)) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && (contains(github.event.comment.body, '@codex') || contains(github.event.comment.body, '@autoreview')) && contains(fromJSON('["OWNER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
+      (github.event_name == 'pull_request_review_comment' && (contains(github.event.comment.body, '@codex') || contains(github.event.comment.body, '@autoreview')) && contains(fromJSON('["OWNER", "COLLABORATOR"]'), github.event.comment.author_association)) ||
+      (github.event_name == 'pull_request_review' && (contains(github.event.review.body, '@codex') || contains(github.event.review.body, '@autoreview')) && contains(fromJSON('["OWNER", "COLLABORATOR"]'), github.event.review.author_association)) ||
       github.event_name == 'workflow_dispatch'
     uses: brian-bell/skills/.github/workflows/autoreview.yml@main
     permissions:
       contents: write
       pull-requests: write
       issues: write
-      actions: read
     secrets: inherit
     with:
       pr_number: ${{ github.event.inputs.pr_number || '' }}
@@ -127,26 +128,54 @@ The reusable workflow:
 
 1. Resolves the PR from the triggering comment, review, or manual input.
 2. Checks out the PR branch with full history.
-3. Fetches the PR base branch as `origin/<base-ref>`.
-4. Checks out `brian-bell/skills` into `.skills/` and hides that directory from
+3. Verifies the checked-out branch still matches the resolved PR head SHA.
+4. Fetches the PR base branch from the caller repository through a dedicated
+   `base` remote, then pins the resolved base SHA as
+   `refs/autoreview/pr-base-resolved`
+   for review.
+5. Checks out `brian-bell/skills` into `.skills/` and hides that directory from
    the reviewed repository's git status.
-5. Mounts `.skills/catalog/portable/autoreview`, `commit`, and `ship` into an
+6. Mounts `.skills/catalog/portable/autoreview`, `commit`, and `ship` into an
    isolated Codex home under `skills/`.
-6. Fails early unless `skills/autoreview/SKILL.md` exists and
+7. Fails early unless `skills/autoreview/SKILL.md` exists and
    `skills/autoreview/scripts/autoreview` is executable.
-7. Configures the GitHub Actions bot identity for any commits Codex creates.
-8. Runs `openai/codex-action` in workspace-write mode with the same Codex home
+8. Configures the GitHub Actions bot identity for any commits Codex creates.
+9. Runs `openai/codex-action` in workspace-write mode with the same Codex home
    passed through `codex-home` and `CODEX_HOME`.
-9. Tells Codex where the mounted autoreview skill and script live in the
+10. Tells Codex where the mounted autoreview skill and script live in the
    headless prompt.
-10. Lets Codex run `$autoreview`, fix findings, push commits, and leave the
+11. Lets Codex run `$autoreview`, fix findings, push commits, and leave the
    final PR comment.
+12. Posts a fallback PR comment if no marked autoreview comment exists for the
+   workflow run. Successful Codex runs use Codex's final message; setup or Codex
+   failures get a failure-specific comment with the workflow run URL.
+
+## Migration Notes
+
+This replaces the old reusable workflow path:
+
+```text
+brian-bell/skills/.github/workflows/autoreview-ship.yml@main
+```
+
+Consumers must update callers to:
+
+```text
+brian-bell/skills/.github/workflows/autoreview.yml@main
+```
+
+Old inputs such as `autoreview_model`, `autoreview_thinking`, and
+`autoreview_parallel_tests` are not supported by the new workflow. Use
+`codex_model` and `codex_effort` for Codex configuration.
 
 ## Safety Notes
 
 - Do not run this reusable workflow from untrusted `pull_request` events with
   write permissions and secrets.
 - The recommended caller gates comment triggers to repository collaborators.
+- Only trigger this workflow for PR code you are comfortable letting a
+  workspace-write Codex session inspect and operate around with `OPENAI_API_KEY`
+  and write-capable GitHub tokens available.
 - Fork PRs may not be pushable with the caller repository token. In that case
   Codex should report the push blocker in its PR comment or final message.
 - The `.skills/` checkout is support material only. The workflow excludes it
